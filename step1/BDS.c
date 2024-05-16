@@ -21,15 +21,19 @@ void diskfile_init()
     long filesize = n_cylinders * n_sectors * sector_size;
     printf("Init: filesize = %ld bytes\n", filesize);
 
+    // filename -> diskfile_fd
     diskfile_fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     EXIT_IF(diskfile_fd < 0, , "Error: Could not open file '%s'.\n", filename);
 
+    // stretch diskfile_fd
     int result = lseek(diskfile_fd, filesize - 1, SEEK_SET);
     EXIT_IF(result < 0, close(diskfile_fd), "Error: Could not stretch file '%s'.\n", filename);
 
+    // write to diskfile_fd
     result = write(diskfile_fd, "", 1);
     EXIT_IF(result != 1, close(diskfile_fd), "Error: Could not write last byte of file '%s'.\n", filename);
 
+    // diskfile_fd -> diskfile
     diskfile = (char *)mmap(NULL, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, diskfile_fd, 0);
     EXIT_IF(diskfile == MAP_FAILED, close(diskfile_fd), "Error: Could not map file '%s'.\n", filename);
 
@@ -110,8 +114,11 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
     int result;
     if (starts_with(req_buffer, req_size, "I"))
     {
-        char str[100];
+        // str
+        char str[20];
         sprintf(str, "%d %d", n_cylinders, n_sectors);
+
+        // str -> p_res_buffer
         result = str_to_buffer(str, p_res_buffer, p_res_size);
         RET_ERR_IF(IS_ERROR(result), , error_response(p_res_buffer, p_res_size));
 
@@ -119,20 +126,24 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
     }
     else if (starts_with(req_buffer, req_size, "R"))
     {
-        int cylinder, sector;
+        // req_buffer -> req_str
         char *req_str = NULL;
         result = buffer_to_str(req_buffer, req_size, &req_str);
         RET_ERR_IF(IS_ERROR(result), , result);
 
+        // req_str -> cylinders, sector
+        int cylinder, sector;
         result = sscanf(req_str, "R %d %d", &cylinder, &sector);
         free(req_str);
         RET_ERR_IF(result != 2, , error_response(p_res_buffer, p_res_size));
 
+        // cylinders, sector -> buffer
         char *buffer;
         int size = 0;
         result = diskfile_read(&buffer, &size, cylinder, sector);
         RET_ERR_IF(IS_ERROR(result), , error_response(p_res_buffer, p_res_size));
 
+        // buffer -> p_res_buffer
         result = concat_buffer(p_res_buffer, p_res_size, "Yes ", 4, buffer, size);
         free(buffer);
         RET_ERR_IF(IS_ERROR(result), , result);
@@ -141,9 +152,9 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
     }
     else if (starts_with(req_buffer, req_size, "W"))
     {
+        // req_buffer -> req_str, data_buffer
         char *req_str = (char *)malloc(req_size * sizeof(char));
         memcpy(req_str, req_buffer, req_size);
-
         int space_count = 0;
         char *data_buffer = NULL;
         int data_buffer_size = 0;
@@ -162,15 +173,18 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
         }
         RET_ERR_IF(data_buffer == NULL, free(req_str), error_response(p_res_buffer, p_res_size));
 
+        // req_str -> cylinder, sector, len
         int cylinder, sector, len;
         result = sscanf(req_str, "W %d %d %d", &cylinder, &sector, &len);
         RET_ERR_IF(result != 3, free(req_str), error_response(p_res_buffer, p_res_size));
         RET_ERR_IF(len != data_buffer_size, free(req_str), error_response(p_res_buffer, p_res_size));
 
+        // data_buffer, cylinder, sector -> diskfile_write()
         result = diskfile_write(data_buffer, data_buffer_size, cylinder, sector);
         free(req_str);
         RET_ERR_IF(IS_ERROR(result), , error_response(p_res_buffer, p_res_size));
 
+        // "Yes" -> p_res_buffer
         char str[] = "Yes";
         int result = str_to_buffer(str, p_res_buffer, p_res_size);
         RET_ERR_IF(IS_ERROR(result), , result);
@@ -197,8 +211,7 @@ int main(int argc, char *argv[])
     EXIT_IF(n_cylinders <= 0 || n_sectors <= 0 || delay <= 0 || port <= 0, , "Numbers must be greater than 0.\n");
 
     diskfile_init();
-    int sockfd;
-    simple_server(&sockfd, port, response);
+    simple_server(port, response);
     diskfile_close();
 
     return 0;

@@ -3,10 +3,10 @@
 #include "std.h"
 #include "error_type.h"
 
-response_t simple_server_response_functions[MAX_CLIENTS];
-int simple_server_client_sockfds[MAX_CLIENTS];
-pthread_t simple_server_worker_threads[MAX_CLIENTS];
-int n_client_sockfds = 0;
+static response_t simple_server_response_functions[MAX_CLIENTS];
+static int simple_server_client_sockfds[MAX_CLIENTS];
+static pthread_t simple_server_worker_threads[MAX_CLIENTS];
+static int n_client_sockfds = 0;
 
 void *simple_server_worker(void *p_sockfd)
 {
@@ -34,23 +34,24 @@ void *simple_server_worker(void *p_sockfd)
     pthread_exit(NULL);
 }
 
-int simple_server(int *p_sockfd, int port, response_t response)
+int simple_server(int port, response_t response)
 {
     int result;
-    EXIT_IF(n_client_sockfds != 0, , "Error: Multiple processes need to be created to run multiple simple servers");
-    *p_sockfd = create_socket();
-    bind_socket(*p_sockfd, port);
-    listen_socket(*p_sockfd);
+    EXIT_IF(n_client_sockfds != 0, , "Error: Multiple servers.");
+    int sockfd = create_socket();
+    bind_socket(sockfd, port);
+    listen_socket(sockfd);
     while (n_client_sockfds < MAX_CLIENTS)
     {
-        int client_sockfd = wait_for_client(*p_sockfd);
+        int client_sockfd = wait_for_client(sockfd);
         simple_server_response_functions[client_sockfd] = response;
         simple_server_client_sockfds[n_client_sockfds] = client_sockfd;
         pthread_t thread;
         result = pthread_create(&thread, NULL, simple_server_worker, &client_sockfd);
-        EXIT_IF(result != 0, close(*p_sockfd), "Error: Could not create a new thread.");
+        EXIT_IF(result != 0, close(sockfd), "Error: Could not create a new thread.");
         simple_server_worker_threads[n_client_sockfds] = thread;
         n_client_sockfds++;
     }
+    close(sockfd);
     return 0;
 }

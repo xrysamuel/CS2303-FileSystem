@@ -13,6 +13,4 @@ int buffer_to_hex_str(const char *buffer, int size, char **p_str);
 
 int str_to_buffer(const char *str, char **p_buffer, int *p_size);
 
-int readline_to_buffer(char *buffer, int max_size);
-
 #endif

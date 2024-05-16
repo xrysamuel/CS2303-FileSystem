@@ -29,7 +29,7 @@ int concat_buffer(char **p_target_buffer, int *p_target_size, const char *src_bu
 
 int buffer_to_str(const char *buffer, int size, char **p_str)
 {
-    RET_ERR_IF(buffer == NULL || p_str == NULL, , INVALID_ARG_ERROR);
+    RET_ERR_IF(buffer == NULL || p_str == NULL || size < 0, , INVALID_ARG_ERROR);
 
     char *str = (char *)malloc((size + 1) * sizeof(char));
     RET_ERR_IF(str == NULL, , BAD_ALLOC_ERROR);
@@ -83,13 +83,4 @@ int str_to_buffer(const char *str, char **p_buffer, int *p_size)
     *p_buffer = buffer;
     *p_size = size;
     return size;
-}
-
-int readline_to_buffer(char *buffer, int max_size)
-{
-    fgets(buffer, max_size, stdin);
-    char *find = strchr(buffer, '\n');
-    if (find)
-        *find = '\0';
-    return strlen(buffer);
 }

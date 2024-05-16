@@ -1,6 +1,7 @@
 #include "std.h"
 #include "socket.h"
 #include "buffer.h"
+#include "client.h"
 #include "error_type.h"
 
 #define BUFFER_SIZE 1048576
@@ -27,6 +28,54 @@ char *randstr(int size)
     return random_string;
 }
 
+int get_request(char **req_buffer, int *req_size, int cycle)
+{
+    char *buffer = (char *)malloc(BUFFER_SIZE);
+    RET_ERR_IF(buffer == NULL, , BAD_ALLOC_ERROR);
+
+    if (cycle == 0)
+    {
+        sprintf(buffer, "I");
+    }
+    else
+    {
+        if (cycle % 5 == 0)
+        {
+            sprintf(buffer, "R %d %d", randint(0, n_cylinders), randint(0, n_sectors));
+        }
+        else
+        {
+            int size = randint(10, 600); // size of write data
+            sprintf(buffer, "W %d %d %d %s", randint(0, n_cylinders), randint(0, n_sectors), size, randstr(size));
+        }
+    }
+    printf("> %s\n", buffer);
+
+    *req_buffer = buffer;
+    *req_size = strlen(buffer);
+    return *req_size;
+}
+
+int handle_response(const char *res_buffer, int res_size, int cycle)
+{
+    int result;
+    char *res_str = NULL;
+    result = buffer_to_str(res_buffer, res_size, &res_str);
+    RET_ERR_IF(IS_ERROR(result), , result);
+
+    if (cycle == 0)
+    {
+        sscanf(res_str, "%d %d", &n_cylinders, &n_sectors);
+        printf("%s\n", res_str);
+    }
+    else
+    {
+        printf("%s\n", res_str);
+    }
+    usleep(randint(100000, 1000000));
+    return res_size;
+}
+
 int main(int argc, char *argv[])
 {
     EXIT_IF(argc != 3, , "Usage: %s <server_ip> <port>\n", argv[0]);
@@ -38,60 +87,9 @@ int main(int argc, char *argv[])
 
     const char *server_ip = argv[1];
     int port = atoi(argv[2]);
-
-    int result;
-    int sockfd = create_socket();
-    connect_to_server(sockfd, server_ip, port);
-
     srand(time(NULL) + getpid());
 
-    char req_buffer[BUFFER_SIZE];
-    int cycle = 0;
-    while (true)
-    {
-        if (cycle == 0)
-        {
-            sprintf(req_buffer, "I");
-        }
-        else
-        {
-            if (cycle % 5 == 0)
-            {
-                sprintf(req_buffer, "R %d %d", randint(0, n_cylinders), randint(0, n_sectors));
-            }
-            else
-            {
-                int size = randint(10, 600); // size of write data
-                sprintf(req_buffer, "W %d %d %d %s", randint(0, n_cylinders), randint(0, n_sectors), size, randstr(size));
-            }
-        }
-        printf("> %s\n", req_buffer);
-        result = send_message(sockfd, req_buffer, strlen(req_buffer));
-        EXIT_IF(IS_ERROR(result), , "Error: Could not send message.\n");
+    simple_client(server_ip, port, get_request, handle_response);
 
-        char *res_buffer = NULL;
-        int res_buffer_size = 0;
-        result = recv_message(sockfd, &res_buffer, &res_buffer_size);
-        EXIT_IF(IS_ERROR(result), , "Error: Could not receive message.\n");
-
-        char *res_str = NULL;
-        result = buffer_to_str(res_buffer, res_buffer_size, &res_str);
-        free(res_buffer);
-        EXIT_IF(IS_ERROR(result), , "Error: Could not receive message.\n");
-        if (cycle == 0)
-        {
-            sscanf(res_str, "%d %d", &n_cylinders, &n_sectors);
-            printf("%s\n", res_str);
-        }
-        else
-        {
-            printf("%s\n", res_str);
-        }
-        free(res_str);
-        cycle++;
-        usleep(randint(100000, 1000000));
-    }
-
-    close(sockfd);
     return 0;
 }

@@ -2,10 +2,46 @@
 #include "socket.h"
 #include "buffer.h"
 #include "error_type.h"
+#include "client.h"
 
 #define BUFFER_SIZE 1048576
 
 bool hex_mode = false;
+
+int get_request(char **req_buffer, int *req_size, int cycle)
+{
+    printf("> ");
+    char *buffer = (char *)malloc(BUFFER_SIZE);
+    RET_ERR_IF(buffer == NULL, , BAD_ALLOC_ERROR);
+
+    fgets(buffer, BUFFER_SIZE, stdin);
+    char *find = strchr(buffer, '\n');
+    if (find)
+        *find = '\0';
+    
+    if (starts_with(buffer, BUFFER_SIZE, "hex"))
+        hex_mode = true;
+    if (starts_with(buffer, BUFFER_SIZE, "char"))
+        hex_mode = false;
+
+    *req_buffer = buffer;
+    *req_size = strlen(buffer);
+    return *req_size;
+}
+
+int handle_response(const char *res_buffer, int res_size, int cycle)
+{
+    char *res_str = NULL;
+    int result;
+    if (hex_mode)
+        result = buffer_to_hex_str(res_buffer, res_size, &res_str);
+    else
+        result = buffer_to_str(res_buffer, res_size, &res_str);
+    RET_ERR_IF(IS_ERROR(result), , result);
+    printf("%s\n", res_str);
+    free(res_str);
+    return res_size;
+}
 
 int main(int argc, char *argv[])
 {
@@ -15,45 +51,7 @@ int main(int argc, char *argv[])
     const char *server_ip = argv[1];
     int port = atoi(argv[2]);
 
-    int result;
-    int sockfd = create_socket();
-    connect_to_server(sockfd, server_ip, port);
-
-    char req_buffer[BUFFER_SIZE];
-    int message_size;
-    while (true)
-    {
-        printf("> ");
-        message_size = readline_to_buffer(req_buffer, BUFFER_SIZE);
-        if (starts_with(req_buffer, BUFFER_SIZE, "hex"))
-        {
-            hex_mode = true;
-            continue;
-        }
-        if (starts_with(req_buffer, BUFFER_SIZE, "char"))
-        {
-            hex_mode = false;
-            continue;
-        }
-        result = send_message(sockfd, req_buffer, message_size);
-        EXIT_IF(IS_ERROR(result), , "Error: Could not send message.\n");
-
-        char *res_buffer = NULL;
-        int res_buffer_size = 0;
-        result = recv_message(sockfd, &res_buffer, &res_buffer_size);
-        EXIT_IF(IS_ERROR(result), , "Error: Could not receive message.\n");
-
-        char *res_str = NULL;
-        if (hex_mode)
-            result = buffer_to_hex_str(res_buffer, res_buffer_size, &res_str);
-        else
-            result = buffer_to_str(res_buffer, res_buffer_size, &res_str);
-        free(res_buffer);
-        EXIT_IF(IS_ERROR(result), , "Error: Could not receive message.\n");
-        printf("%s\n", res_str);
-        free(res_str);
-    }
-
-    close(sockfd);
+    simple_client(server_ip, port, get_request, handle_response);
+    
     return 0;
 }

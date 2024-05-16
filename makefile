@@ -1,14 +1,14 @@
 CC := gcc
 CFLAGS := -g -Wall
 BUILD_DIR := build
-UTILS_OBJS := $(BUILD_DIR)/socket.o $(BUILD_DIR)/buffer.o $(BUILD_DIR)/server.o
+UTILS_OBJS := $(BUILD_DIR)/socket.o $(BUILD_DIR)/buffer.o $(BUILD_DIR)/server.o $(BUILD_DIR)/client.o
 INCLUDE_DIR := include
 
 $(shell mkdir -p $(BUILD_DIR))
 
 define compile
-$(BUILD_DIR)/$2.o: $1 $(INCLUDE_DIR)/*.h
-	$$(CC) $$(CFLAGS) -I$$(INCLUDE_DIR) -c $$< -o $$@
+$(BUILD_DIR)/$2: $1 $(INCLUDE_DIR)/*.h
+	$$(CC) $$(CFLAGS) -I$$(INCLUDE_DIR) -c $1 -o $$@
 endef
 
 define generate_target
@@ -19,14 +19,15 @@ endef
 all: build/BDC_command build/BDC_random build/BDS build/FC build/FS
 	@echo "Done."
 
-$(eval $(call compile,step1/BDC_random.c,BDC_random))
-$(eval $(call compile,step1/BDC_command.c,BDC_command))
-$(eval $(call compile,step1/BDS.c,BDS))
-$(eval $(call compile,step2/FC.c,FC))
-$(eval $(call compile,step2/FS.c,FS))
-$(eval $(call compile,utils/socket.c,socket))
-$(eval $(call compile,utils/buffer.c,buffer))
-$(eval $(call compile,utils/server.c,server))
+$(eval $(call compile,step1/BDC_random.c,BDC_random.o))
+$(eval $(call compile,step1/BDC_command.c,BDC_command.o))
+$(eval $(call compile,step1/BDS.c,BDS.o))
+$(eval $(call compile,step2/FC.c,FC.o))
+$(eval $(call compile,step2/FS.c disk.c file.c,FS.o))
+$(eval $(call compile,utils/socket.c,socket.o))
+$(eval $(call compile,utils/buffer.c,buffer.o))
+$(eval $(call compile,utils/server.c,server.o))
+$(eval $(call compile,utils/client.c,client.o))
 
 $(eval $(call generate_target,BDC_command))
 $(eval $(call generate_target,BDC_random))
