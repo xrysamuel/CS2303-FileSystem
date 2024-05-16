@@ -2,6 +2,7 @@
 #include "socket.h"
 #include "error_type.h"
 #include "buffer.h"
+#include "server.h"
 
 int diskfile_fd = -1;
 char *diskfile = NULL;
@@ -182,31 +183,6 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
     }
 }
 
-void *worker(void *p_sockfd)
-{
-    int sockfd = *(int *)p_sockfd;
-    int result = 0;
-    signal(SIGPIPE, sigpipe_handler);
-    while(true)
-    {
-        char *req_buffer = NULL;
-        int req_buffer_size = 0;
-        result = recv_message(sockfd, &req_buffer, &req_buffer_size);
-        TEXIT_IF(IS_ERROR(result), , "Error: Could not receive message.\n");
-
-        char *res_buffer = NULL;
-        int res_buffer_size = 0;
-        result = response(req_buffer, req_buffer_size, &res_buffer, &res_buffer_size);
-        free(req_buffer);
-        TEXIT_IF(IS_ERROR(result), , "Error: Response error.\n");
-
-        result = send_message(sockfd, res_buffer, res_buffer_size);
-        free(res_buffer);
-        TEXIT_IF(IS_ERROR(result), , "Error: Could not send message.\n");
-    }
-    pthread_exit(NULL);
-}
-
 int main(int argc, char *argv[])
 {
     EXIT_IF(argc != 6, , "Usage: %s <disk filename> <#cylinders> <#sector per cylinder> <track-to-track delay> <#port>\n", argv[0]);
@@ -220,18 +196,9 @@ int main(int argc, char *argv[])
     EXIT_IF(filename == NULL || filename[0] == '\0', , "Error: Invalid filename.\n");
     EXIT_IF(n_cylinders <= 0 || n_sectors <= 0 || delay <= 0 || port <= 0, , "Numbers must be greater than 0.\n");
 
-    int result;
     diskfile_init();
-    int sockfd = create_socket();
-    bind_socket(sockfd, port);
-    listen_socket(sockfd);
-    while (true)
-    {
-        int client_sockfd = wait_for_client(sockfd);
-        pthread_t thread;
-        result = pthread_create(&thread, NULL, worker, &client_sockfd);
-        EXIT_IF(result != 0, close(sockfd), "Error: Failed to create thread.\n");        
-    }
+    int sockfd;
+    simple_server(&sockfd, port, response);
     diskfile_close();
 
     return 0;

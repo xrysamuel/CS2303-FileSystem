@@ -1,7 +1,7 @@
 CC := gcc
 CFLAGS := -g -Wall
 BUILD_DIR := build
-UTILS_OBJS := $(BUILD_DIR)/socket.o $(BUILD_DIR)/buffer.o
+UTILS_OBJS := $(BUILD_DIR)/socket.o $(BUILD_DIR)/buffer.o $(BUILD_DIR)/server.o
 INCLUDE_DIR := include
 
 $(shell mkdir -p $(BUILD_DIR))
@@ -26,6 +26,7 @@ $(eval $(call compile,step2/FC.c,FC))
 $(eval $(call compile,step2/FS.c,FS))
 $(eval $(call compile,utils/socket.c,socket))
 $(eval $(call compile,utils/buffer.c,buffer))
+$(eval $(call compile,utils/server.c,server))
 
 $(eval $(call generate_target,BDC_command))
 $(eval $(call generate_target,BDC_random))
