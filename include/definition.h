@@ -11,6 +11,7 @@
  *           1           16384            16           32768      < 33554432
  */
 
+#define SUPERBLOCK_PTR 0
 #define BLOCK_BITMAP_PTR 1
 #define INODE_BITMAP_PTR 16385
 #define INODE_TABLE_PTR 16401
