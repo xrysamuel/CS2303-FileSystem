@@ -11,8 +11,8 @@ $(BUILD_DIR)/$2: $1 $(INCLUDE_DIR)/*.h
 	$$(CC) $$(CFLAGS) -I$$(INCLUDE_DIR) -c $1 -o $$@
 endef
 
-define generate_target
-$(BUILD_DIR)/$1: $(BUILD_DIR)/$1.o $(UTILS_OBJS)
+define link
+$(BUILD_DIR)/$2: $$(addprefix build/, $1) $(UTILS_OBJS)
 	$(CC) $(CFLAGS) $$^ -o $$@
 endef
 
@@ -23,17 +23,19 @@ $(eval $(call compile,step1/BDC_random.c,BDC_random.o))
 $(eval $(call compile,step1/BDC_command.c,BDC_command.o))
 $(eval $(call compile,step1/BDS.c,BDS.o))
 $(eval $(call compile,step2/FC.c,FC.o))
-$(eval $(call compile,step2/FS.c disk.c files.c,FS.o))
+$(eval $(call compile,step2/FS.c,FS.o))
+$(eval $(call compile,step2/blocks.c,blocks.o))
+$(eval $(call compile,step2/disk.c,disk.o))
 $(eval $(call compile,utils/socket.c,socket.o))
 $(eval $(call compile,utils/buffer.c,buffer.o))
 $(eval $(call compile,utils/server.c,server.o))
 $(eval $(call compile,utils/client.c,client.o))
 
-$(eval $(call generate_target,BDC_command))
-$(eval $(call generate_target,BDC_random))
-$(eval $(call generate_target,BDS))
-$(eval $(call generate_target,FC))
-$(eval $(call generate_target,FS))
+$(eval $(call link,BDC_command.o,BDC_command))
+$(eval $(call link,BDC_random.o,BDC_random))
+$(eval $(call link,BDS.o,BDS))
+$(eval $(call link,FC.o,FC))
+$(eval $(call link,FS.o blocks.o disk.o,FS))
 
 clean:
 	rm -rf $(BUILD_DIR)

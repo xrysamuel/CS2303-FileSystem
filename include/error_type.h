@@ -72,11 +72,18 @@
     while (0)
 #endif
 
+#define SUCCESS 0
+
+// general errors
 #define DEFAULT_ERROR -1
 #define READ_ERROR -2
 #define WRITE_ERROR -3
 #define INVALID_ARG_ERROR -4
 #define BAD_ALLOC_ERROR -5
+
+// specific errors
+#define DISK_FULL_ERROR -6
+#define PERMISSION_DENIED -7
 
 #define IS_ERROR(result) result < 0
 

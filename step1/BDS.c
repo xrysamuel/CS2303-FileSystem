@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
     int port = atoi(argv[5]);
 
     EXIT_IF(filename == NULL || filename[0] == '\0', , "Error: Invalid filename.\n");
-    EXIT_IF(n_cylinders <= 0 || n_sectors <= 0 || delay <= 0 || port <= 0, , "Numbers must be greater than 0.\n");
+    EXIT_IF(n_cylinders <= 0 || n_sectors <= 0 || delay <= 0 || port <= 0, , "Error: Invalid arguments.\n");
 
     diskfile_init();
     simple_server(port, response);
