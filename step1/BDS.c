@@ -104,7 +104,7 @@ int error_response(char **p_res_buffer, int *p_res_size)
 {
     char str[] = "No";
     int result = str_to_buffer(str, p_res_buffer, p_res_size);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     return *p_res_size;
 }
@@ -129,7 +129,7 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
         // req_buffer -> req_str
         char *req_str = NULL;
         result = buffer_to_str(req_buffer, req_size, &req_str);
-        RET_ERR_IF(IS_ERROR(result), , result);
+        RET_ERR_RESULT(result); 
 
         // req_str -> cylinders, sector
         int cylinder, sector;
@@ -146,7 +146,7 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
         // buffer -> p_res_buffer
         result = concat_buffer(p_res_buffer, p_res_size, "Yes ", 4, buffer, size);
         free(buffer);
-        RET_ERR_IF(IS_ERROR(result), , result);
+        RET_ERR_RESULT(result); 
 
         return *p_res_size;
     }
@@ -187,7 +187,7 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
         // "Yes" -> p_res_buffer
         char str[] = "Yes";
         int result = str_to_buffer(str, p_res_buffer, p_res_size);
-        RET_ERR_IF(IS_ERROR(result), , result);
+        RET_ERR_RESULT(result); 
 
         return *p_res_size;
     }

@@ -61,7 +61,7 @@ int handle_response(const char *res_buffer, int res_size, int cycle)
     int result;
     char *res_str = NULL;
     result = buffer_to_str(res_buffer, res_size, &res_str);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     if (cycle == 0)
     {

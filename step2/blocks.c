@@ -48,12 +48,16 @@ int blocks_format()
     for (int i = BLOCK_BITMAP_PTR; i < INODE_BITMAP_END; i++)
     {
         result = disk_write(zeros, i);
-        RET_ERR_IF(IS_ERROR(result), , result);
+        RET_ERR_RESULT(result); 
     }
 
     superblock.formatted = true;
     result = disk_write((char *)&superblock, SUPERBLOCK_PTR);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
+
+    least_block_bitmap_block = 0;
+    least_inode_bitmap_block = 0;
+
     return SUCCESS;
 }
 
@@ -89,12 +93,12 @@ int bit_set(int start_block, int offset)
     int bit_offset = (offset % (BLOCK_SIZE * 8)) % 8;
 
     int result = disk_read(buffer, block);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     buffer[byte_offset] |= (1 << bit_offset);
 
     result = disk_write(buffer, block);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     return SUCCESS;
 }
@@ -107,12 +111,12 @@ int bit_clear(int start_block, int offset)
     int bit_offset = (offset % (BLOCK_SIZE * 8)) % 8;
 
     int result = disk_read(buffer, block);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     buffer[byte_offset] &= ~(1 << bit_offset);
 
     result = disk_write(buffer, block);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
     return 0;
 }
 
@@ -124,7 +128,7 @@ int find_first_zero_bit(int start_block, int *p_offset, int search_start_block, 
     while (block < search_end_block)
     {
         int result = disk_read(buffer, block);
-        RET_ERR_IF(IS_ERROR(result), , result);
+        RET_ERR_RESULT(result); 
 
         for (int offset = 0; offset < BLOCK_SIZE * 8; offset++)
         {
@@ -153,7 +157,7 @@ int deallocate_inode(int inode_id)
     RET_ERR_IF(inode_id >= INODE_TABLE_END - INODE_TABLE_PTR, , INVALID_ARG_ERROR);
 
     int result = bit_clear(INODE_BITMAP_PTR, inode_id);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
     superblock.n_free_inodes++;
     least_inode_bitmap_block = INODE_BITMAP_PTR + inode_id / (BLOCK_SIZE * 8);
     return SUCCESS;
@@ -164,31 +168,31 @@ int allocate_inode(int *inode_id)
     RET_ERR_IF(superblock.n_free_inodes <= 0, , DISK_FULL_ERROR);
     int inode_bitmap_offset;
     int result = find_first_zero_bit(INODE_BITMAP_PTR, &inode_bitmap_offset, least_inode_bitmap_block, INODE_BITMAP_END);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     least_inode_bitmap_block = INODE_BITMAP_PTR + inode_bitmap_offset / (BLOCK_SIZE * 8);
 
     result = bit_set(INODE_BITMAP_PTR, inode_bitmap_offset);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
     *inode_id = inode_bitmap_offset;
     superblock.n_free_inodes--;
     return SUCCESS;
 }
 
-int read_inode(int inode_id, struct inode_t *inode)
+int read_inode(int inode_id, struct inode_t *p_inode)
 {
     RET_ERR_IF(inode_id < 0, , INVALID_ARG_ERROR);
     RET_ERR_IF(inode_id >= INODE_TABLE_END - INODE_TABLE_PTR, , INVALID_ARG_ERROR);
 
-    return disk_read((char *)inode, INODE_TABLE_PTR + inode_id);
+    return disk_read((char *)p_inode, INODE_TABLE_PTR + inode_id);
 }
 
-int write_inode(int inode_id, struct inode_t inode)
+int write_inode(int inode_id, const struct inode_t* p_inode)
 {
     RET_ERR_IF(inode_id < 0, , INVALID_ARG_ERROR);
     RET_ERR_IF(inode_id >= INODE_TABLE_END - INODE_TABLE_PTR, , INVALID_ARG_ERROR);
 
-    return disk_write((char *)&inode, INODE_TABLE_PTR + inode_id);
+    return disk_write((char *)p_inode, INODE_TABLE_PTR + inode_id);
 }
 
 /*
@@ -201,7 +205,7 @@ int deallocate_block(int block_id)
     RET_ERR_IF(block_id >= n_blocks - DATA_BLOCKS_PTR, , INVALID_ARG_ERROR);
 
     int result = bit_clear(BLOCK_BITMAP_PTR, block_id);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
     superblock.n_free_blocks++;
     least_block_bitmap_block = BLOCK_BITMAP_PTR + block_id / (BLOCK_SIZE * 8);
     return SUCCESS;
@@ -212,18 +216,18 @@ int allocate_block(int *block_id)
     RET_ERR_IF(superblock.n_free_blocks <= 0, , DISK_FULL_ERROR);
     int block_bitmap_offset;
     int result = find_first_zero_bit(BLOCK_BITMAP_PTR, &block_bitmap_offset, least_block_bitmap_block, BLOCK_BITMAP_END);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     least_block_bitmap_block = BLOCK_BITMAP_PTR + block_bitmap_offset / (BLOCK_SIZE * 8);
 
     result = bit_set(BLOCK_BITMAP_PTR, block_bitmap_offset);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
     *block_id = block_bitmap_offset;
     superblock.n_free_blocks--;
     return SUCCESS;
 }
 
-int read_block(int block_id, char block[256])
+int read_block(int block_id, char block[BLOCK_SIZE])
 {
     RET_ERR_IF(block_id < 0, , INVALID_ARG_ERROR);
     RET_ERR_IF(block_id >= n_blocks - DATA_BLOCKS_PTR, , INVALID_ARG_ERROR);
@@ -231,7 +235,7 @@ int read_block(int block_id, char block[256])
     return disk_read(block, DATA_BLOCKS_PTR + block_id);
 }
 
-int write_block(int block_id, char block[256])
+int write_block(int block_id, const char block[BLOCK_SIZE])
 {
     RET_ERR_IF(block_id < 0, , INVALID_ARG_ERROR);
     RET_ERR_IF(block_id >= n_blocks - DATA_BLOCKS_PTR, , INVALID_ARG_ERROR);

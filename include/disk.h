@@ -11,12 +11,8 @@ void disk_close();
 
 void get_n_blocks(int *p_n_blocks);
 
-int disk_read_direct(char buffer[BLOCK_SIZE], int block);
-
-int disk_write_direct(char buffer[BLOCK_SIZE], int block);
-
 int disk_read(char buffer[BLOCK_SIZE], int block);
 
-int disk_write(char buffer[BLOCK_SIZE], int block);
+int disk_write(const char buffer[BLOCK_SIZE], int block);
 
 #endif

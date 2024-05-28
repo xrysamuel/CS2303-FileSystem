@@ -37,7 +37,7 @@ int handle_response(const char *res_buffer, int res_size, int cycle)
         result = buffer_to_hex_str(res_buffer, res_size, &res_str);
     else
         result = buffer_to_str(res_buffer, res_size, &res_str);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
     printf("%s\n", res_str);
     free(res_str);
     return res_size;

@@ -68,10 +68,24 @@ struct inode_t
     char reserved[170];
 };
 
+#define IB_N_ENTRIES 64
+
+// Indirect Block
 struct indirect_block_t
 {
-    u_int32_t block_addr[64];
+    u_int32_t block_ptr[IB_N_ENTRIES];
 };
+
+#define BLOCK_START 0
+#define BLOCK_END 12
+#define SBLOCK_START 12
+#define SBLOCK_END 76
+#define DBLOCK_START 76
+#define DBLOCK_END 4172
+#define TBLOCK_START 4172
+#define TBLOCK_END 266316
+
+#define MAX_SIZE 68176869
 
 #define MODE_UR  0x0000000000000001 // owner read
 #define MODE_UW  0x0000000000000010 // owner write
@@ -90,4 +104,5 @@ static_assert(sizeof(struct inode_t) == BLOCK_SIZE);
 static_assert(sizeof(struct indirect_block_t) == BLOCK_SIZE);
 
 #pragma pack()
+
 #endif

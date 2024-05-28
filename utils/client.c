@@ -9,12 +9,12 @@ static int client_sockfd;
 int custom_client_response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_res_size)
 {
     int result = send_message(client_sockfd, req_buffer, req_size);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     char *res_buffer = NULL;
     int res_size = 0;
     result = recv_message(client_sockfd, &res_buffer, &res_size);
-    RET_ERR_IF(IS_ERROR(result), , result);
+    RET_ERR_RESULT(result); 
 
     *p_res_buffer = res_buffer;
     *p_res_size = res_size;

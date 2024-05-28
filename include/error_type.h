@@ -87,4 +87,6 @@
 
 #define IS_ERROR(result) result < 0
 
+#define RET_ERR_RESULT(result) RET_ERR_IF(IS_ERROR(result), , result);
+
 #endif
