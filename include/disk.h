@@ -1,7 +1,7 @@
 #ifndef DISK_H
 #define DISK_H
 
-#include "definition.h"
+#include "fsconfig.h"
 
 #define CACHE_SIZE 64
 

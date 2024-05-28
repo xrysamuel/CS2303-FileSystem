@@ -1,5 +1,5 @@
-#ifndef STD_H
-#define STD_H
+#ifndef COMMON_H
+#define COMMON_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,5 +21,7 @@
 #include <sys/mman.h>
 #include <semaphore.h>
 #include <ctype.h>
+
+#define DEFAULT_BUFFER_CAPACITY 16384
 
 #endif

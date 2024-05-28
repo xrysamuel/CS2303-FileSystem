@@ -1,7 +1,7 @@
-#ifndef INODE_H
-#define INODE_H
+#ifndef FSCONFIG_H
+#define FSCONFIG_H
 
-#include "std.h"
+#include "common.h"
 
 #define BLOCK_SIZE 256
 
@@ -22,6 +22,8 @@
  *            interfaces in basic disk server, including caching mechanism.
  *  - blocks.c: Provides allocation and deallocation interfaces for blocks 
  *              and inodes, as well as read and write interfaces for blocks.
+ *  - inodes.c: Provides manipulation interfaces for inode files.
+ *  - tree.c: Provides manipulation interfaces for file tree. 
  */
 
 #define SUPERBLOCK_PTR 0

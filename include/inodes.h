@@ -1,6 +1,9 @@
 #ifndef INODES_H
 #define INODES_H
 
+#include "common.h"
+#include "fsconfig.h"
+
 /* This structure is similar to a clock, where
  * entry_1, entry_2, entry_3 are hours, minutes,
  * seconds. nth block -> visit path:
@@ -55,10 +58,14 @@ int inodes_format();
 
 int create_inode(int *inode_id, u_int16_t mode, u_int16_t uid, u_int16_t gid);
 
+int delete_inode(int inode_id);
+
 int inode_file_resize(int inode_id, int size);
 
 int inode_file_read(int inode_id, char *buffer, int start, int size);
 
 int inode_file_write(int inode_id, const char *buffer, int start, int size);
+
+int get_inode(int inode_id, struct inode_t* inode);
 
 #endif

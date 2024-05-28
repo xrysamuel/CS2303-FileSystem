@@ -1,4 +1,4 @@
-#include "std.h"
+#include "common.h"
 #include "socket.h"
 #include "buffer.h"
 #include "client.h"
@@ -28,40 +28,40 @@ char *randstr(int size)
     return random_string;
 }
 
-int get_request(char **req_buffer, int *req_size, int cycle)
+int get_request(char *req_buffer, int *p_req_size, int max_req_size, int cycle)
 {
-    char *buffer = (char *)malloc(BUFFER_SIZE);
-    RET_ERR_IF(buffer == NULL, , BAD_ALLOC_ERROR);
-
+    int n_print;
     if (cycle == 0)
     {
-        sprintf(buffer, "I");
+        n_print = snprintf(req_buffer, max_req_size, "I");
+        RET_ERR_IF(n_print >= max_req_size, , BUFFER_OVERFLOW);
     }
     else
     {
         if (cycle % 5 == 0)
         {
-            sprintf(buffer, "R %d %d", randint(0, n_cylinders), randint(0, n_sectors));
+            n_print = snprintf(req_buffer, max_req_size, "R %d %d", randint(0, n_cylinders), randint(0, n_sectors));
+            RET_ERR_IF(n_print >= max_req_size, , BUFFER_OVERFLOW);
         }
         else
         {
             int size = randint(10, 600); // size of write data
-            sprintf(buffer, "W %d %d %d %s", randint(0, n_cylinders), randint(0, n_sectors), size, randstr(size));
+            n_print = snprintf(req_buffer, max_req_size, "W %d %d %d %s", randint(0, n_cylinders), randint(0, n_sectors), size, randstr(size));
+            RET_ERR_IF(n_print >= max_req_size, , BUFFER_OVERFLOW);
         }
     }
-    printf("> %s\n", buffer);
+    printf("> %s\n", req_buffer);
 
-    *req_buffer = buffer;
-    *req_size = strlen(buffer);
-    return *req_size;
+    *p_req_size = strlen(req_buffer);
+    return *p_req_size;
 }
 
 int handle_response(const char *res_buffer, int res_size, int cycle)
 {
     int result;
-    char *res_str = NULL;
-    result = buffer_to_str(res_buffer, res_size, &res_str);
-    RET_ERR_RESULT(result); 
+    char res_str[DEFAULT_BUFFER_CAPACITY];
+    result = buffer_to_str(res_buffer, res_size, res_str, DEFAULT_BUFFER_CAPACITY);
+    RET_ERR_RESULT(result);
 
     if (cycle == 0)
     {

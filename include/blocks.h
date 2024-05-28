@@ -1,7 +1,7 @@
 #ifndef BLOCKS_H
 #define BLOCKS_H
 
-#include "definition.h"
+#include "fsconfig.h"
 
 void blocks_close();
 

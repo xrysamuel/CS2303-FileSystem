@@ -1,6 +1,6 @@
 #include "socket.h"
 #include "error_type.h"
-#include "std.h"
+#include "common.h"
 
 // Create a socket and return the file descriptor of the new socket.
 int create_socket()
@@ -102,10 +102,10 @@ int writen(int sockfd, const char *buffer, int size)
 // Returns the size of the message on success.
 int send_message(int sockfd, const char *buffer, int size)
 {
-    RET_ERR_IF(sockfd < 0 || buffer == NULL || size < 0 || size > MAX_MSG_SIZE, , INVALID_ARG_ERROR);
+    RET_ERR_IF(sockfd < 0 || buffer == NULL || size < 0, , INVALID_ARG_ERROR);
 
     char *internal_buffer = (char *)malloc(size + 4);
-    EXIT_IF(internal_buffer == NULL, close(sockfd), "Error: Allocation failed.\n");
+    EXIT_IF(internal_buffer == NULL, close(sockfd), "Error: Bad alloc.\n");
 
     int big_len = htonl(size);
     memcpy(internal_buffer, &big_len, 4);
@@ -117,23 +117,19 @@ int send_message(int sockfd, const char *buffer, int size)
 
 // Receives a message from the server using the provided socket file descriptor.
 // Returns the size of message on success.
-// `char** p_buffer` and `p_size` will be allocated on success to accommodate the received message.
-int recv_message(int sockfd, char **p_buffer, int *p_size)
+int recv_message(int sockfd, char *buffer, int *p_size, int max_size)
 {
-    RET_ERR_IF(sockfd < 0 || p_buffer == NULL, , INVALID_ARG_ERROR);
+    RET_ERR_IF(sockfd < 0, , INVALID_ARG_ERROR);
 
     int size = 0;
     readn(sockfd, (char *)&size, 4);
     size = ntohl(size);
-    RET_ERR_IF(size > MAX_MSG_SIZE || size < 0, , READ_ERROR);
+    RET_ERR_IF(size < 0, , READ_ERROR);
+    RET_ERR_IF(size > max_size, , BUFFER_OVERFLOW);
 
-    char *internal_buffer = (char *)malloc(size);
-    EXIT_IF(internal_buffer == NULL, close(sockfd), "Error: Allocation failed.\n");
+    int result = readn(sockfd, buffer, size);
+    RET_ERR_IF(result != size, , READ_ERROR);
 
-    int result = readn(sockfd, internal_buffer, size);
-    RET_ERR_IF(result != size, free(internal_buffer), READ_ERROR);
-
-    *p_buffer = internal_buffer;
     *p_size = size;
     return result;
 }

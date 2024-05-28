@@ -1,4 +1,4 @@
-#include "std.h"
+#include "common.h"
 #include "socket.h"
 #include "error_type.h"
 #include "buffer.h"
@@ -58,24 +58,23 @@ void arm_delay(int cylinder_1, int cylinder_2)
     usleep(delay * abs(cylinder_1 - cylinder_2));
 }
 
-int diskfile_read(char **p_buffer, int *p_size, int cylinder, int sector)
+int diskfile_read(char *buffer, int *p_size, int max_size, int cylinder, int sector)
 {
     RET_ERR_IF(cylinder >= n_cylinders || sector >= n_sectors || cylinder < 0 || sector < 0, , INVALID_ARG_ERROR);
 
     RET_ERR_IF(diskfile == NULL, , DEFAULT_ERROR);
 
+    RET_ERR_IF(sector_size > max_size, , BUFFER_OVERFLOW);
+
     long start = (cylinder * n_sectors + sector) * sector_size;
-    char *internal_buffer = (char *)malloc(sector_size);
-    EXIT_IF(internal_buffer == NULL, , "Error: Allocation failed.\n");
 
     sem_wait(&diskfile_mutex);
     arm_delay(disk_arm_loc, cylinder);
     disk_arm_loc = cylinder;
     printf("Read: cylinder = %d, sector = %d.\n", cylinder, sector);
-    memcpy(internal_buffer, &diskfile[start], sector_size);
+    memcpy(buffer, &diskfile[start], sector_size);
     sem_post(&diskfile_mutex);
 
-    *p_buffer = internal_buffer;
     *p_size = sector_size;
     return sector_size;
 }
@@ -100,52 +99,41 @@ int diskfile_write(char *buffer, int size, int cylinder, int sector)
     return size;
 }
 
-int error_response(char **p_res_buffer, int *p_res_size)
-{
-    char str[] = "No";
-    int result = str_to_buffer(str, p_res_buffer, p_res_size);
-    RET_ERR_RESULT(result); 
-
-    return *p_res_size;
-}
-
-int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_res_size)
+int response(const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size)
 {
     int result;
     if (starts_with(req_buffer, req_size, "I"))
     {
         // str
         char str[20];
-        sprintf(str, "%d %d", n_cylinders, n_sectors);
+        snprintf(str, 20, "%d %d", n_cylinders, n_sectors);
 
-        // str -> p_res_buffer
-        result = str_to_buffer(str, p_res_buffer, p_res_size);
-        RET_ERR_IF(IS_ERROR(result), , error_response(p_res_buffer, p_res_size));
+        // str -> res_buffer
+        result = str_to_buffer(str, res_buffer, p_res_size, max_res_size);
+        RET_ERR_IF(IS_ERROR(result), , str_to_buffer("No", res_buffer, p_res_size, max_res_size));
 
         return *p_res_size;
     }
     else if (starts_with(req_buffer, req_size, "R"))
     {
         // req_buffer -> req_str
-        char *req_str = NULL;
-        result = buffer_to_str(req_buffer, req_size, &req_str);
+        char req_str[DEFAULT_BUFFER_CAPACITY];
+        result = buffer_to_str(req_buffer, req_size, req_str, DEFAULT_BUFFER_CAPACITY);
         RET_ERR_RESULT(result); 
 
         // req_str -> cylinders, sector
         int cylinder, sector;
         result = sscanf(req_str, "R %d %d", &cylinder, &sector);
-        free(req_str);
-        RET_ERR_IF(result != 2, , error_response(p_res_buffer, p_res_size));
+        RET_ERR_IF(result != 2, , str_to_buffer("No", res_buffer, p_res_size, max_res_size));
 
         // cylinders, sector -> buffer
-        char *buffer;
-        int size = 0;
-        result = diskfile_read(&buffer, &size, cylinder, sector);
-        RET_ERR_IF(IS_ERROR(result), , error_response(p_res_buffer, p_res_size));
+        int size;
+        char buffer[DEFAULT_BUFFER_CAPACITY];
+        result = diskfile_read(buffer, &size, DEFAULT_BUFFER_CAPACITY, cylinder, sector);
+        RET_ERR_IF(IS_ERROR(result), , str_to_buffer("No", res_buffer, p_res_size, max_res_size));
 
-        // buffer -> p_res_buffer
-        result = concat_buffer(p_res_buffer, p_res_size, "Yes ", 4, buffer, size);
-        free(buffer);
+        // buffer -> res_buffer
+        result = concat_buffer(res_buffer, p_res_size, max_res_size, "Yes ", 4, buffer, size);
         RET_ERR_RESULT(result); 
 
         return *p_res_size;
@@ -154,6 +142,7 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
     {
         // req_buffer -> req_str, data_buffer
         char *req_str = (char *)malloc(req_size * sizeof(char));
+        RET_ERR_IF(req_str == NULL, , BAD_ALLOC_ERROR);
         memcpy(req_str, req_buffer, req_size);
         int space_count = 0;
         char *data_buffer = NULL;
@@ -171,29 +160,24 @@ int response(const char *req_buffer, int req_size, char **p_res_buffer, int *p_r
                 }
             }
         }
-        RET_ERR_IF(data_buffer == NULL, free(req_str), error_response(p_res_buffer, p_res_size));
+        RET_ERR_IF(data_buffer == NULL, free(req_str), str_to_buffer("No", res_buffer, p_res_size, max_res_size));
 
         // req_str -> cylinder, sector, len
         int cylinder, sector, len;
         result = sscanf(req_str, "W %d %d %d", &cylinder, &sector, &len);
-        RET_ERR_IF(result != 3, free(req_str), error_response(p_res_buffer, p_res_size));
-        RET_ERR_IF(len != data_buffer_size, free(req_str), error_response(p_res_buffer, p_res_size));
+        RET_ERR_IF(result != 3, free(req_str), str_to_buffer("No", res_buffer, p_res_size, max_res_size));
+        RET_ERR_IF(len != data_buffer_size, free(req_str), str_to_buffer("No", res_buffer, p_res_size, max_res_size));
 
         // data_buffer, cylinder, sector -> diskfile_write()
         result = diskfile_write(data_buffer, data_buffer_size, cylinder, sector);
         free(req_str);
-        RET_ERR_IF(IS_ERROR(result), , error_response(p_res_buffer, p_res_size));
+        RET_ERR_IF(IS_ERROR(result), , str_to_buffer("No", res_buffer, p_res_size, max_res_size));
 
-        // "Yes" -> p_res_buffer
-        char str[] = "Yes";
-        int result = str_to_buffer(str, p_res_buffer, p_res_size);
-        RET_ERR_RESULT(result); 
-
-        return *p_res_size;
+        return str_to_buffer("Yes", res_buffer, p_res_size, max_res_size);
     }
     else
     {
-        return error_response(p_res_buffer, p_res_size);
+        return str_to_buffer("No", res_buffer, p_res_size, max_res_size);
     }
 }
 

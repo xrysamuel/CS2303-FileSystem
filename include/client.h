@@ -2,7 +2,7 @@
 #define CLIENT_H
 #include "server.h"
 
-typedef int (*get_request_t)(char **req_buffer, int *req_size, int cycle);
+typedef int (*get_request_t)(char *req_buffer, int *req_size, int max_req_size, int cycle);
 
 typedef int (*handle_response_t)(const char *res_buffer, int res_size, int cycle);
 

@@ -1,7 +1,7 @@
 #ifndef ERROR_H
 #define ERROR_H
 
-#include "std.h"
+#include "common.h"
 
 // #define SILENCE
 
@@ -74,16 +74,19 @@
 
 #define SUCCESS 0
 
-// general errors
+// unrecoverable fault
 #define DEFAULT_ERROR -1
 #define READ_ERROR -2
 #define WRITE_ERROR -3
 #define INVALID_ARG_ERROR -4
 #define BAD_ALLOC_ERROR -5
 
+// recoverable fault
+#define BUFFER_OVERFLOW -6
+
 // specific errors
-#define DISK_FULL_ERROR -6
-#define PERMISSION_DENIED -7
+#define DISK_FULL_ERROR -7
+#define PERMISSION_DENIED -8
 
 #define IS_ERROR(result) result < 0
 

@@ -1,6 +1,6 @@
 #include "inodes.h"
-#include "std.h"
-#include "definition.h"
+#include "common.h"
+#include "fsconfig.h"
 #include "blocks.h"
 #include "error_type.h"
 #include <time.h>
@@ -22,7 +22,6 @@ int inodes_format()
 
 void nth_block_to_visit_path(int block, struct visit_path_t *p_visit_path)
 {
-    int result;
     if (block < BLOCK_END)
     {
         p_visit_path->visit_type = DIRECT_PATH;
@@ -71,7 +70,7 @@ void visit_path_to_nth_block(struct visit_path_t visit_path, int *p_block)
     }
 }
 
-int manipulate_entry_1_block_id(const struct inode_t *p_inode, int *p_block_id, struct visit_path_t visit_path, enum op_t op)
+int manipulate_entry_1_block_id(struct inode_t *p_inode, int *p_block_id, struct visit_path_t visit_path, enum op_t op)
 {
     int result;
     struct indirect_block_t ib;
@@ -105,7 +104,7 @@ int manipulate_entry_1_block_id(const struct inode_t *p_inode, int *p_block_id, 
         RET_ERR_RESULT(result);
         break;
     case ALLOCATE_BLOCK_ID:
-        result = allocate_block(&ib.block_ptr[visit_path.entry_1]);
+        result = allocate_block((int *)&ib.block_ptr[visit_path.entry_1]);
         RET_ERR_RESULT(result);
         *p_block_id = ib.block_ptr[visit_path.entry_1];
         break;
@@ -131,7 +130,7 @@ int manipulate_entry_1_block_id(const struct inode_t *p_inode, int *p_block_id, 
     return SUCCESS;
 }
 
-int manipulate_entry_2_block_id(const struct inode_t *p_inode, int *p_block_id, struct visit_path_t visit_path, enum op_t op)
+int manipulate_entry_2_block_id(struct inode_t *p_inode, int *p_block_id, struct visit_path_t visit_path, enum op_t op)
 {
     RET_ERR_IF(visit_path.visit_type < 2, , INVALID_ARG_ERROR);
 
@@ -156,7 +155,7 @@ int manipulate_entry_2_block_id(const struct inode_t *p_inode, int *p_block_id, 
         RET_ERR_RESULT(result);
         break;
     case ALLOCATE_BLOCK_ID:
-        result = allocate_block(&ib.block_ptr[visit_path.entry_2]);
+        result = allocate_block((int *)&ib.block_ptr[visit_path.entry_2]);
         RET_ERR_RESULT(result);
         *p_block_id = ib.block_ptr[visit_path.entry_2];
         break;
@@ -169,7 +168,7 @@ int manipulate_entry_2_block_id(const struct inode_t *p_inode, int *p_block_id, 
     return SUCCESS;
 }
 
-int manipulate_entry_3_block_id(const struct inode_t *p_inode, int *p_block_id, struct visit_path_t visit_path, enum op_t op)
+int manipulate_entry_3_block_id(struct inode_t *p_inode, int *p_block_id, struct visit_path_t visit_path, enum op_t op)
 {
     RET_ERR_IF(visit_path.visit_type < 3, , INVALID_ARG_ERROR);
 
@@ -194,7 +193,7 @@ int manipulate_entry_3_block_id(const struct inode_t *p_inode, int *p_block_id, 
         RET_ERR_RESULT(result);
         break;
     case ALLOCATE_BLOCK_ID:
-        result = allocate_block(&ib.block_ptr[visit_path.entry_3]);
+        result = allocate_block((int *)&ib.block_ptr[visit_path.entry_3]);
         RET_ERR_RESULT(result);
         *p_block_id = ib.block_ptr[visit_path.entry_3];
         break;
@@ -207,7 +206,7 @@ int manipulate_entry_3_block_id(const struct inode_t *p_inode, int *p_block_id, 
     return SUCCESS;
 }
 
-int visit_path_to_block_id(const struct inode_t *p_inode, int *p_block_id, struct visit_path_t visit_path)
+int visit_path_to_block_id(struct inode_t *p_inode, int *p_block_id, struct visit_path_t visit_path)
 {
     int result;
     switch (visit_path.visit_type)
@@ -268,17 +267,17 @@ int inode_file_resize(int inode_id, int size)
         for (int block = cur_n_blocks - 1; block >= n_blocks; block--)
         {
             nth_block_to_visit_path(block, &cur_visit_path);
-            if (cur_visit_path.entry_3 != cur_visit_path.entry_3)
+            if (cur_visit_path.entry_3 != prev_visit_path.entry_3)
             {
                 result = manipulate_entry_3_block_id(&inode, &discard_block_id, cur_visit_path, DEALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
             }
-            if (cur_visit_path.entry_2 != cur_visit_path.entry_2)
+            if (cur_visit_path.entry_2 != prev_visit_path.entry_2)
             {
                 result = manipulate_entry_2_block_id(&inode, &discard_block_id, cur_visit_path, DEALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
             }
-            if (cur_visit_path.entry_1 != cur_visit_path.entry_1)
+            if (cur_visit_path.entry_1 != prev_visit_path.entry_1)
             {
                 result = manipulate_entry_1_block_id(&inode, &discard_block_id, cur_visit_path, DEALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
@@ -296,6 +295,7 @@ int inode_file_resize(int inode_id, int size)
                 case TRIPLE_PATH:
                     result = deallocate_block(inode.tblock_ptr);
                     break;
+                case DIRECT_PATH:
                 }
                 RET_ERR_RESULT(result);
             }
@@ -318,28 +318,29 @@ int inode_file_resize(int inode_id, int size)
                 switch (cur_visit_path.visit_type)
                 {
                 case SINGLE_PATH:
-                    result = allocate_block(&inode.sblock_ptr);
+                    result = allocate_block((int *)&inode.sblock_ptr);
                     break;
                 case DOUBLE_PATH:
-                    result = allocate_block(&inode.dblock_ptr);
+                    result = allocate_block((int *)&inode.dblock_ptr);
                     break;
                 case TRIPLE_PATH:
-                    result = allocate_block(&inode.tblock_ptr);
+                    result = allocate_block((int *)&inode.tblock_ptr);
                     break;
+                case DIRECT_PATH:
                 }
                 RET_ERR_RESULT(result);
             }
-            if (cur_visit_path.entry_1 != cur_visit_path.entry_1)
+            if (cur_visit_path.entry_1 != prev_visit_path.entry_1)
             {
                 result = manipulate_entry_1_block_id(&inode, &new_block_id, cur_visit_path, ALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
             }
-            if (cur_visit_path.entry_2 != cur_visit_path.entry_2)
+            if (cur_visit_path.entry_2 != prev_visit_path.entry_2)
             {
                 result = manipulate_entry_2_block_id(&inode, &new_block_id, cur_visit_path, ALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
             }
-            if (cur_visit_path.entry_3 != cur_visit_path.entry_3)
+            if (cur_visit_path.entry_3 != prev_visit_path.entry_3)
             {
                 result = manipulate_entry_3_block_id(&inode, &new_block_id, cur_visit_path, DEALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
@@ -349,6 +350,8 @@ int inode_file_resize(int inode_id, int size)
     }
 
     inode.size = size;
+    inode.atime = time(NULL);
+    inode.mtime = time(NULL);
     result = write_inode(inode_id, &inode);
     RET_ERR_RESULT(result);
 
@@ -360,7 +363,7 @@ int inode_file_read(int inode_id, char *buffer, int start, int size)
     int result;
 
     struct inode_t inode;
-    int result = read_inode(inode_id, &inode);
+    result = read_inode(inode_id, &inode);
     RET_ERR_RESULT(result);
 
     char block_buffer[BLOCK_SIZE];
@@ -382,6 +385,11 @@ int inode_file_read(int inode_id, char *buffer, int start, int size)
         }
         buffer[addr - start] = block_buffer[addr % BLOCK_SIZE];
     }
+
+    inode.atime = time(NULL);
+    result = write_inode(inode_id, &inode);
+    RET_ERR_RESULT(result);
+
     return SUCCESS;
 }
 
@@ -390,7 +398,7 @@ int inode_file_write(int inode_id, const char *buffer, int start, int size)
     int result;
 
     struct inode_t inode;
-    int result = read_inode(inode_id, &inode);
+    result = read_inode(inode_id, &inode);
     RET_ERR_RESULT(result);
 
     char block_buffer[BLOCK_SIZE];
@@ -414,6 +422,12 @@ int inode_file_write(int inode_id, const char *buffer, int start, int size)
     }
     result = write_block(block_id, block_buffer);
     RET_ERR_RESULT(result);
+
+    inode.atime = time(NULL);
+    inode.mtime = time(NULL);
+    result = write_inode(inode_id, &inode);
+    RET_ERR_RESULT(result);
+
     return SUCCESS;
 }
 
@@ -426,4 +440,9 @@ int delete_inode(int inode_id)
     RET_ERR_RESULT(result);
 
     return SUCCESS;
+}
+
+int get_inode(int inode_id, struct inode_t *inode)
+{
+    return read_inode(inode_id, inode);
 }

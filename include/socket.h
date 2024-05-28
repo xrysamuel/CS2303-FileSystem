@@ -1,9 +1,7 @@
 #ifndef SOCKET_H
 #define SOCKET_H
 
-#include "std.h"
-
-#define MAX_MSG_SIZE 10 * 1024 * 1024
+#include "common.h"
 
 #define MAX_READ_TIMES 1024
 
@@ -19,7 +17,7 @@ void connect_to_server(int sockfd, const char* ip, uint16_t port);
 
 int send_message(int sockfd, const char *buffer, int size);
 
-int recv_message(int sockfd, char** p_buffer, int* p_size);
+int recv_message(int sockfd, char *buffer, int *p_size, int max_size);
 
 void sigpipe_handler(int sig);
 

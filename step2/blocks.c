@@ -1,5 +1,5 @@
-#include "definition.h"
-#include "std.h"
+#include "fsconfig.h"
+#include "common.h"
 #include "disk.h"
 #include "error_type.h"
 
