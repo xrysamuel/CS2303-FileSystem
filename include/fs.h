@@ -83,4 +83,8 @@ int catch_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
 
 int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries);
 
+int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries);
+
+int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries);
+
 #endif

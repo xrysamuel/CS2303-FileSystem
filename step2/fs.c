@@ -54,6 +54,8 @@ int error_response(int result, struct response_arg_t arg)
         return str_to_buffer("Error: Permission denies.", arg.res_buffer, arg.p_res_size, arg.max_size);
     else if (result == NOT_FOUND)
         return str_to_buffer("Error: Not found.", arg.res_buffer, arg.p_res_size, arg.max_size);
+    else if (result == ALREADY_EXISTS)
+        return str_to_buffer("Error: Already exists.", arg.res_buffer, arg.p_res_size, arg.max_size);
     else
         return str_to_buffer("Error.", arg.res_buffer, arg.p_res_size, arg.max_size);
 }
@@ -194,6 +196,17 @@ int list(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_ent
 int make_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
 {
     int result;
+    for (int i = 0; i < *p_n_entries; i++)
+    {
+        struct inode_t inode;
+        result = get_inode((*p_entries)[i].inode_id, &inode);
+        RET_ERR_RESULT(result);
+        if (strncmp((*p_entries)[i].name, arg.req_buffer, arg.req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
+        {
+            return ALREADY_EXISTS;
+        }
+    }
+
     // create file
     int file_inode_id;
     result = create_inode(&file_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GX | MODE_OR | MODE_OX, arg.p_context->uid, arg.p_context->gid);
@@ -243,9 +256,21 @@ int remove_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t 
 
 int make_dir(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
 {
+    int result;
+    for (int i = 0; i < *p_n_entries; i++)
+    {
+        struct inode_t inode;
+        result = get_inode((*p_entries)[i].inode_id, &inode);
+        RET_ERR_RESULT(result);
+        if (strncmp((*p_entries)[i].name, arg.req_buffer, arg.req_size) == 0 && IS_MODE(MODE_DIR, inode.mode))
+        {
+            return ALREADY_EXISTS;
+        }
+    }
+
     // create dir inode
     int dir_inode_id;
-    int result = create_inode(&dir_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GX | MODE_OR | MODE_OX | MODE_DIR, arg.p_context->uid, arg.p_context->gid);
+    result = create_inode(&dir_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GX | MODE_OR | MODE_OX | MODE_DIR, arg.p_context->uid, arg.p_context->gid);
     RET_ERR_RESULT(result);
 
     // create .. and .
@@ -363,7 +388,8 @@ int catch_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
     for (int i = 0; i < *p_n_entries; i++)
     {
         struct inode_t inode;
-        result = get_inode((*p_entries)[i].inode_id, &inode);
+        int inode_id = (*p_entries)[i].inode_id;
+        result = get_inode(inode_id, &inode);
         RET_ERR_RESULT(result);
         if (strncmp((*p_entries)[i].name, arg.req_buffer, arg.req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
         {
@@ -373,7 +399,7 @@ int catch_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
 
             // read file
             RET_ERR_IF(inode.size > arg.max_size, , BUFFER_OVERFLOW);
-            result = inode_file_read((*p_entries)[i].inode_id, arg.res_buffer, 0, inode.size);
+            result = inode_file_read(inode_id, arg.res_buffer, 0, inode.size);
             RET_ERR_RESULT(result);
             *arg.p_res_size = inode.size;
             return SUCCESS;
@@ -394,7 +420,7 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
 
     char *data_buffer;
     int data_size;
-    result = cut_at_n_space(req_buffer, arg.req_size, 2, &data_buffer, &req_size, &data_size);
+    result = cut_at_n_space(req_buffer, req_size, 2, &data_buffer, &req_size, &data_size);
     RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
     char *len_buffer;
@@ -409,7 +435,8 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
     for (int i = 0; i < *p_n_entries; i++)
     {
         struct inode_t inode;
-        result = get_inode((*p_entries)[i].inode_id, &inode);
+        int inode_id = (*p_entries)[i].inode_id;
+        result = get_inode(inode_id, &inode);
         RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
         if (strncmp((*p_entries)[i].name, req_buffer, req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
@@ -419,16 +446,154 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
             // resize
-            result = inode_file_resize((*p_entries)[i].inode_id, len);
+            result = inode_file_resize(inode_id, len);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
             // write file
-            result = inode_file_write((*p_entries)[i].inode_id, data_buffer, 0, len);
+            result = inode_file_write(inode_id, data_buffer, 0, len);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-            int for_debug = (*p_entries)[i].inode_id;
 
+            free(req_buffer);
             return SUCCESS;
         }
     }
+    free(req_buffer);
+    return NOT_FOUND;
+}
+
+int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
+{
+    int result;
+
+    // parse
+    char *req_buffer = (char *)malloc(arg.req_size);
+    RET_ERR_IF(req_buffer == NULL, , BAD_ALLOC_ERROR);
+    memcpy(req_buffer, arg.req_buffer, arg.req_size);
+    int req_size = arg.req_size;
+
+    char *data_buffer;
+    int data_size;
+    result = cut_at_n_space(req_buffer, req_size, 3, &data_buffer, &req_size, &data_size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    char *len_buffer;
+    int len_size;
+    result = cut_at_n_space(req_buffer, req_size, 2, &len_buffer, &req_size, &len_size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    char *pos_buffer;
+    int pos_size;
+    result = cut_at_n_space(req_buffer, req_size, 1, &pos_buffer, &req_size, &pos_size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    // check len
+    int len = atoi(len_buffer);
+    int pos = atoi(pos_buffer);
+    RET_ERR_IF(len != data_size || pos < 0, free(req_buffer), DEFAULT_ERROR);
+
+    for (int i = 0; i < *p_n_entries; i++)
+    {
+        struct inode_t inode;
+        int inode_id = (*p_entries)[i].inode_id;
+        result = get_inode(inode_id, &inode);
+        RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+        if (strncmp((*p_entries)[i].name, req_buffer, req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
+        {
+            // authorize
+            result = authorize(arg.p_context, &inode, WRITE_AUTH);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+            // resize
+            pos = (pos > inode.size) ? inode.size : pos;
+            int target_size = inode.size + len;
+            result = inode_file_resize(inode_id, target_size);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+            // read file
+            char *buffer = (char *)malloc(inode.size - pos);
+            RET_ERR_IF(buffer == NULL, , BAD_ALLOC_ERROR);
+            result = inode_file_read(inode_id, buffer, pos, inode.size - pos);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
+
+            // write file
+            result = inode_file_write(inode_id, data_buffer, pos, len);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
+            result = inode_file_write(inode_id, buffer, pos + len, inode.size - pos);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
+
+            free(buffer);
+            free(req_buffer);
+            return SUCCESS;
+        }
+    }
+    free(req_buffer);
+    return NOT_FOUND;
+}
+
+
+int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
+{
+    int result;
+
+    // parse
+    char *req_buffer = (char *)malloc(arg.req_size);
+    RET_ERR_IF(req_buffer == NULL, , BAD_ALLOC_ERROR);
+    memcpy(req_buffer, arg.req_buffer, arg.req_size);
+    int req_size = arg.req_size;
+
+    char *len_buffer;
+    int len_size;
+    result = cut_at_n_space(req_buffer, req_size, 2, &len_buffer, &req_size, &len_size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    char *pos_buffer;
+    int pos_size;
+    result = cut_at_n_space(req_buffer, req_size, 1, &pos_buffer, &req_size, &pos_size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    // check len
+    int len = atoi(len_buffer);
+    int pos = atoi(pos_buffer);
+    RET_ERR_IF(len < 0 || pos < 0, free(req_buffer), DEFAULT_ERROR);
+
+    for (int i = 0; i < *p_n_entries; i++)
+    {
+        struct inode_t inode;
+        int inode_id = (*p_entries)[i].inode_id;
+        result = get_inode(inode_id, &inode);
+        RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+        if (strncmp((*p_entries)[i].name, req_buffer, req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
+        {
+            // authorize
+            result = authorize(arg.p_context, &inode, WRITE_AUTH);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+            int end = pos + len;
+            end = (end > inode.size) ? inode.size : end;
+            len = end - pos;
+            int target_size = inode.size - len;
+
+            // read file
+            char *buffer = (char *)malloc(inode.size - end);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+            result = inode_file_read(inode_id, buffer, end, inode.size - end);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
+
+            // write file
+            result = inode_file_write(inode_id, buffer, pos, inode.size - end);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
+
+            // resize
+            result = inode_file_resize(inode_id, target_size);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
+
+            free(req_buffer);
+            free(buffer);
+            return SUCCESS;
+        }
+    }
+    free(req_buffer);
     return NOT_FOUND;
 }

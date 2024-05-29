@@ -52,6 +52,16 @@ int response(int sockfd, const char *req_buffer, int req_size, char *res_buffer,
         struct response_arg_t arg = {&contexts[sockfd], res_buffer, p_res_size, max_res_size, req_buffer + 2, req_size - 2};
         return fs_operation_wrapper(write_file, arg, WRITE_AUTH);
     }
+    else if (starts_with(req_buffer, req_size, "i "))
+    {
+        struct response_arg_t arg = {&contexts[sockfd], res_buffer, p_res_size, max_res_size, req_buffer + 2, req_size - 2};
+        return fs_operation_wrapper(insert_file, arg, WRITE_AUTH);
+    }
+    else if (starts_with(req_buffer, req_size, "d "))
+    {
+        struct response_arg_t arg = {&contexts[sockfd], res_buffer, p_res_size, max_res_size, req_buffer + 2, req_size - 2};
+        return fs_operation_wrapper(delete_in_file, arg, WRITE_AUTH);
+    }
     else if (starts_with(req_buffer, req_size, "e"))
     {
         return DEFAULT_ERROR;

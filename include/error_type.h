@@ -92,10 +92,11 @@
 #define BAD_ALLOC_ERROR -5
 #define BUFFER_OVERFLOW -6
 
-// specific errors
+// file system errors
 #define DISK_FULL_ERROR -7
 #define PERMISSION_DENIED -8
 #define NOT_FOUND -9
+#define ALREADY_EXISTS -10
 
 #define IS_ERROR(result) result < 0
 

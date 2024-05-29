@@ -259,11 +259,10 @@ int inode_file_resize(int inode_id, int size)
 
     if (cur_n_blocks == n_blocks)
     {
-        return SUCCESS;
+        // do nothing
     }
-
     // truncate
-    if (cur_n_blocks > n_blocks)
+    else if (cur_n_blocks > n_blocks)
     {
         struct visit_path_t cur_visit_path;
         struct visit_path_t prev_visit_path;
