@@ -22,21 +22,30 @@ int fs_format()
     int result = inodes_format();
     RET_ERR_RESULT(result);
 
-    int inode_id;
-
     // create root directory
+    int inode_id;
     result = create_inode(&inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GW | MODE_GX | MODE_OR | MODE_OW | MODE_OX | MODE_DIR, ROOT_UID, ROOT_GID);
     RET_ERR_RESULT(result);
     RET_ERR_IF(inode_id != ROOT_INODE_ID, , DEFAULT_ERROR);
 
-    // create .. and . and /home
-    int home_inode_id;
-    result = create_inode(&home_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GX | MODE_OR | MODE_OX | MODE_DIR, ROOT_UID, ROOT_GID);
+    // create "..", ".", /home/, /passwd
+    int home_inode_id, passwd_inode_id;
+    result = create_inode(&home_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GW | MODE_GX | MODE_OR | MODE_OW | MODE_OX | MODE_DIR, ROOT_UID, ROOT_GID);
     RET_ERR_RESULT(result);
-    result = inode_file_resize(inode_id, 2 * DIR_ENTRY_SIZE);
+    result = create_inode(&passwd_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GX | MODE_OR | MODE_OX, ROOT_UID, ROOT_GID);
     RET_ERR_RESULT(result);
-    struct dir_entry_t parent_and_self[2] = {{"..\0", inode_id}, {".\0", inode_id}};
-    result = inode_file_write(inode_id, (char *)parent_and_self, 0, 2 * DIR_ENTRY_SIZE);
+
+    result = inode_file_resize(inode_id, 4 * DIR_ENTRY_SIZE);
+    RET_ERR_RESULT(result);
+    struct dir_entry_t root_children[4] = {{"..\0", inode_id}, {".\0", inode_id}, {"home\0", home_inode_id}, {"passwd\0", passwd_inode_id}};
+    result = inode_file_write(inode_id, (char *)root_children, 0, 4 * DIR_ENTRY_SIZE);
+    RET_ERR_RESULT(result);
+
+    // create "..", "." for /home/
+    result = inode_file_resize(home_inode_id, 2 * DIR_ENTRY_SIZE);
+    RET_ERR_RESULT(result);
+    struct dir_entry_t parent_and_self[2] = {{"..\0", inode_id}, {".\0", home_inode_id}};
+    result = inode_file_write(home_inode_id, (char *)parent_and_self, 0, 2 * DIR_ENTRY_SIZE);
     RET_ERR_RESULT(result);
 
     return SUCCESS;
