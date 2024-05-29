@@ -23,7 +23,7 @@
  *  - blocks.c: Provides allocation and deallocation interfaces for blocks 
  *              and inodes, as well as read and write interfaces for blocks.
  *  - inodes.c: Provides manipulation interfaces for inode files.
- *  - tree.c: Provides manipulation interfaces for file tree. 
+ *  - fs.c: Provides manipulation interfaces for file tree. 
  */
 
 #define SUPERBLOCK_PTR 0
@@ -89,16 +89,16 @@ struct indirect_block_t
 
 #define MAX_SIZE 68176869
 
-#define MODE_UR  0x0000000000000001 // owner read
-#define MODE_UW  0x0000000000000010 // owner write
-#define MODE_UX  0x0000000000000100 // owner execute
-#define MODE_GR  0x0000000000001000 // group read
-#define MODE_GW  0x0000000000010000 // group write
-#define MODE_GX  0x0000000000100000 // group execute
-#define MODE_OR  0x0000000001000000 // others read
-#define MODE_OW  0x0000000010000000 // others write
-#define MODE_OX  0x0000000100000000 // others execute
-#define MODE_DIR 0x0000001000000000 // is directory
+#define MODE_UR  0b0000000000000001 // owner read
+#define MODE_UW  0b0000000000000010 // owner write
+#define MODE_UX  0b0000000000000100 // owner execute
+#define MODE_GR  0b0000000000001000 // group read
+#define MODE_GW  0b0000000000010000 // group write
+#define MODE_GX  0b0000000000100000 // group execute
+#define MODE_OR  0b0000000001000000 // others read
+#define MODE_OW  0b0000000010000000 // others write
+#define MODE_OX  0b0000000100000000 // others execute
+#define MODE_DIR 0b0000001000000000 // is directory
 #define IS_MODE(mode, value) (((mode) & (value)) != 0)
 
 static_assert(sizeof(struct superblock_t) == BLOCK_SIZE);

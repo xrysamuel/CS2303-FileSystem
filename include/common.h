@@ -22,6 +22,6 @@
 #include <semaphore.h>
 #include <ctype.h>
 
-#define DEFAULT_BUFFER_CAPACITY 16384
+#define DEFAULT_BUFFER_CAPACITY 65536
 
 #endif

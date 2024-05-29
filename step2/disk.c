@@ -25,12 +25,13 @@ int disk_write_direct(const char buffer[BLOCK_SIZE], int block);
 
 void disk_init(const char *server_ip, int port)
 {
+    printf("disk: initializing\n");
     custom_client_init(server_ip, port, &disk_server_response);
 
     // "I" -> res_buffer
     char res_buffer[DEFAULT_BUFFER_CAPACITY];
     int res_size;
-    int result = disk_server_response("I", 1, res_buffer, &res_size, DEFAULT_BUFFER_CAPACITY);
+    int result = disk_server_response(0, "I", 1, res_buffer, &res_size, DEFAULT_BUFFER_CAPACITY);
     EXIT_IF(IS_ERROR(result), custom_client_close(), "Error: Could not get disk info.\n");
 
     // res_buffer -> res_str
@@ -56,23 +57,19 @@ void disk_init(const char *server_ip, int port)
 
 void disk_close()
 {
-    custom_client_close();
+    printf("disk: closing\n");
 
     // cache cleanup
-    int result;
     for (int i = 0; i < CACHE_SIZE; i++)
     {
         if (ref[i] != -1)
         {
-            result = -1;
-            while (IS_ERROR(result))
-            {
-                result = disk_write_direct(cache[i].data, blocks[i]);
-            }
+            disk_write_direct(cache[i].data, blocks[i]);
         }
     }
     if (cache != NULL)
         free(cache);
+    custom_client_close();
 }
 
 void get_n_blocks(int *p_n_blocks)
@@ -82,6 +79,8 @@ void get_n_blocks(int *p_n_blocks)
 
 int disk_read_direct(char buffer[BLOCK_SIZE], int block)
 {
+    printf("disk: direct reading %i\n", block);
+
     // block -> cylinder, sector
     int cylinder = block / n_sectors;
     int sector = block % n_sectors;
@@ -93,7 +92,7 @@ int disk_read_direct(char buffer[BLOCK_SIZE], int block)
     // req_str -> res_buffer
     char res_buffer[DEFAULT_BUFFER_CAPACITY];
     int res_size;
-    int result = disk_server_response(req_str, strlen(req_str), res_buffer, &res_size, DEFAULT_BUFFER_CAPACITY);
+    int result = disk_server_response(0, req_str, strlen(req_str), res_buffer, &res_size, DEFAULT_BUFFER_CAPACITY);
     RET_ERR_RESULT(result);
     RET_ERR_IF(res_size != 4 + BLOCK_SIZE, , READ_ERROR);
     RET_ERR_IF(!starts_with(res_buffer, res_size, "Yes"), , READ_ERROR);
@@ -105,6 +104,8 @@ int disk_read_direct(char buffer[BLOCK_SIZE], int block)
 
 int disk_write_direct(const char buffer[BLOCK_SIZE], int block)
 {
+    printf("disk: direct writing %i\n", block);
+
     // block -> cylinder, sector
     int cylinder = block / n_sectors;
     int sector = block % n_sectors;
@@ -122,7 +123,7 @@ int disk_write_direct(const char buffer[BLOCK_SIZE], int block)
     // req_buffer -> res_buffer
     char res_buffer[DEFAULT_BUFFER_CAPACITY];
     int res_size;
-    result = disk_server_response(req_buffer, req_size, res_buffer, &res_size, DEFAULT_BUFFER_CAPACITY);
+    result = disk_server_response(0, req_buffer, req_size, res_buffer, &res_size, DEFAULT_BUFFER_CAPACITY);
     RET_ERR_RESULT(result);
     RET_ERR_IF(!starts_with(res_buffer, res_size, "Yes"), , READ_ERROR);
     return res_size;
@@ -130,6 +131,7 @@ int disk_write_direct(const char buffer[BLOCK_SIZE], int block)
 
 int disk_read(char buffer[BLOCK_SIZE], int block)
 {
+    printf("disk: reading %i\n", block);
     for (int i = 0; i < CACHE_SIZE; i++)
     {
         if (blocks[i] == block)
@@ -141,13 +143,13 @@ int disk_read(char buffer[BLOCK_SIZE], int block)
         }
     }
     // cache miss
-    int cur_ref, result;
-    while ((cur_ref = ref[victim]) == 1)
+    int result;
+    while (ref[victim] == 1)
     {
-        cur_ref = 0;
+        ref[victim] = 0;
         victim = (victim + 1) % CACHE_SIZE;
     }
-    if (cur_ref == 0)
+    if (ref[victim] == 0)
     {
         result = disk_write_direct(cache[victim].data, blocks[victim]);
         RET_ERR_RESULT(result);
@@ -163,6 +165,7 @@ int disk_read(char buffer[BLOCK_SIZE], int block)
 
 int disk_write(const char buffer[BLOCK_SIZE], int block)
 {
+    printf("disk: writing %i\n", block);
     for (int i = 0; i < CACHE_SIZE; i++)
     {
         if (blocks[i] == block)
@@ -174,13 +177,13 @@ int disk_write(const char buffer[BLOCK_SIZE], int block)
         }
     }
     // cache miss
-    int cur_ref, result;
-    while ((cur_ref = ref[victim]) == 1)
+    int result;
+    while (ref[victim] == 1)
     {
-        cur_ref = 0;
+        ref[victim] = 0;
         victim = (victim + 1) % CACHE_SIZE;
     }
-    if (cur_ref == 0)
+    if (ref[victim] == 0)
     {
         result = disk_write_direct(cache[victim].data, blocks[victim]);
         RET_ERR_RESULT(result);

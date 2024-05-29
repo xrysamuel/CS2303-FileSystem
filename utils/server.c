@@ -23,7 +23,7 @@ void *simple_server_worker(void *p_sockfd)
 
         char res_buffer[DEFAULT_BUFFER_CAPACITY];
         int res_buffer_size = 0;
-        result = response_function(req_buffer, req_buffer_size, res_buffer, &res_buffer_size, DEFAULT_BUFFER_CAPACITY);
+        result = response_function(sockfd, req_buffer, req_buffer_size, res_buffer, &res_buffer_size, DEFAULT_BUFFER_CAPACITY);
         TEXIT_IF(IS_ERROR(result), , "Error: Response error.\n");
 
         result = send_message(sockfd, res_buffer, res_buffer_size);

@@ -253,9 +253,14 @@ int inode_file_resize(int inode_id, int size)
     int result = read_inode(inode_id, &inode);
     RET_ERR_RESULT(result);
 
-    int n_blocks = size / BLOCK_SIZE;
-    int cur_n_blocks = inode.size / BLOCK_SIZE;
+    int n_blocks = (size != 0) ? (size / BLOCK_SIZE + 1) : 0;
+    int cur_n_blocks = (inode.size != 0) ? (inode.size / BLOCK_SIZE + 1) : 0;
     RET_ERR_IF(n_blocks >= MAX_SIZE || n_blocks < 0, , INVALID_ARG_ERROR);
+
+    if (cur_n_blocks == n_blocks)
+    {
+        return SUCCESS;
+    }
 
     // truncate
     if (cur_n_blocks > n_blocks)
@@ -366,8 +371,17 @@ int inode_file_read(int inode_id, char *buffer, int start, int size)
     result = read_inode(inode_id, &inode);
     RET_ERR_RESULT(result);
 
+    int block_buffer_id;
     char block_buffer[BLOCK_SIZE];
-    int block_buffer_id = start / BLOCK_SIZE;
+
+    struct visit_path_t visit_path;
+    nth_block_to_visit_path(start / BLOCK_SIZE, &visit_path);
+    result = visit_path_to_block_id(&inode, &block_buffer_id, visit_path);
+    RET_ERR_RESULT(result);
+
+    result = read_block(block_buffer_id, block_buffer);
+    RET_ERR_RESULT(result);
+
     int block_id;
     for (int addr = start; addr < start + size; addr++)
     {
@@ -377,6 +391,8 @@ int inode_file_read(int inode_id, char *buffer, int start, int size)
         result = visit_path_to_block_id(&inode, &block_id, visit_path);
         RET_ERR_RESULT(result);
 
+        // The block_id to be accessed is not the block_id of the block stored
+        // in the buffer.
         if (block_buffer_id != block_id)
         {
             result = read_block(block_id, block_buffer);
@@ -401,8 +417,14 @@ int inode_file_write(int inode_id, const char *buffer, int start, int size)
     result = read_inode(inode_id, &inode);
     RET_ERR_RESULT(result);
 
+    int block_buffer_id;
     char block_buffer[BLOCK_SIZE];
-    int block_buffer_id = start / BLOCK_SIZE;
+
+    struct visit_path_t visit_path;
+    nth_block_to_visit_path(start / BLOCK_SIZE, &visit_path);
+    result = visit_path_to_block_id(&inode, &block_buffer_id, visit_path);
+    RET_ERR_RESULT(result);
+
     int block_id;
     for (int addr = start; addr < start + size; addr++)
     {
@@ -412,6 +434,8 @@ int inode_file_write(int inode_id, const char *buffer, int start, int size)
         result = visit_path_to_block_id(&inode, &block_id, visit_path);
         RET_ERR_RESULT(result);
 
+        // The block_id to be written is not the block_id of the block stored in
+        // the buffer.
         if (block_buffer_id != block_id)
         {
             result = write_block(block_buffer_id, block_buffer);

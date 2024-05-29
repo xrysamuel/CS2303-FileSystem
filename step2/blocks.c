@@ -14,8 +14,8 @@ static struct superblock_t superblock;
  * bitmap history
  */
 
-int least_block_bitmap_block = 0;
-int least_inode_bitmap_block = 0;
+int least_block_bitmap_block = BLOCK_BITMAP_PTR;
+int least_inode_bitmap_block = INODE_BITMAP_PTR;
 
 /*
  * init & close
@@ -55,8 +55,8 @@ int blocks_format()
     result = disk_write((char *)&superblock, SUPERBLOCK_PTR);
     RET_ERR_RESULT(result); 
 
-    least_block_bitmap_block = 0;
-    least_inode_bitmap_block = 0;
+    least_block_bitmap_block = BLOCK_BITMAP_PTR;
+    least_inode_bitmap_block = INODE_BITMAP_PTR;
 
     return SUCCESS;
 }
@@ -77,8 +77,8 @@ void blocks_init(const char *server_ip, int port)
         EXIT_IF(IS_ERROR(result), blocks_close(), "Error: Failed to format the disk.\n");
     }
 
-    least_block_bitmap_block = 0;
-    least_inode_bitmap_block = 0;
+    least_block_bitmap_block = BLOCK_BITMAP_PTR;
+    least_inode_bitmap_block = INODE_BITMAP_PTR;
 }
 
 /*
@@ -122,6 +122,7 @@ int bit_clear(int start_block, int offset)
 
 int find_first_zero_bit(int start_block, int *p_offset, int search_start_block, int search_end_block)
 {
+    RET_ERR_IF(start_block > search_start_block, , INVALID_ARG_ERROR);
     char buffer[BLOCK_SIZE];
     int block = search_start_block;
 
@@ -138,7 +139,7 @@ int find_first_zero_bit(int start_block, int *p_offset, int search_start_block, 
             if ((buffer[byte_offset] & (1 << bit_offset)) == 0)
             {
                 *p_offset = ((block - start_block) * (BLOCK_SIZE * 8)) + (byte_offset * 8) + bit_offset;
-                return 0;
+                return SUCCESS;
             }
         }
 
@@ -153,6 +154,7 @@ int find_first_zero_bit(int start_block, int *p_offset, int search_start_block, 
 
 int deallocate_inode(int inode_id)
 {
+    printf("blocks: deallocate inode block %i\n", inode_id);
     RET_ERR_IF(inode_id < 0, , INVALID_ARG_ERROR);
     RET_ERR_IF(inode_id >= INODE_TABLE_END - INODE_TABLE_PTR, , INVALID_ARG_ERROR);
 
@@ -176,6 +178,7 @@ int allocate_inode(int *inode_id)
     RET_ERR_RESULT(result); 
     *inode_id = inode_bitmap_offset;
     superblock.n_free_inodes--;
+    printf("blocks: allocate inode block %i\n", *inode_id);
     return SUCCESS;
 }
 
@@ -201,6 +204,7 @@ int write_inode(int inode_id, const struct inode_t* p_inode)
 
 int deallocate_block(int block_id)
 {
+    printf("blocks: deallocate data block %i\n", block_id);
     RET_ERR_IF(block_id < 0, , INVALID_ARG_ERROR);
     RET_ERR_IF(block_id >= n_blocks - DATA_BLOCKS_PTR, , INVALID_ARG_ERROR);
 
@@ -224,6 +228,7 @@ int allocate_block(int *block_id)
     RET_ERR_RESULT(result); 
     *block_id = block_bitmap_offset;
     superblock.n_free_blocks--;
+    printf("blocks: allocate data block %i\n", *block_id);
     return SUCCESS;
 }
 

@@ -5,6 +5,16 @@
 
 // #define SILENCE
 
+
+// error handling:
+// 1. We only exit when the function responsible for handling errors has the
+//    ability to perform the final cleanup. Otherwise, the error result should
+//    be forwarded or reinterpreted to the caller.: RET_ERR_IF -> RET_ERR_IF ->
+//    ... -> RET_ERR_IF -> (T)EXIT_IF
+// 2. If the error is recoverable, when the function generating the response
+//    encounters an error, it can generate an appropriate error response:
+//    RET_ERR_IF -> RET_ERR_IF -> ... -> RET_ERR_IF  -> error response
+
 #ifndef SILENCE
 // Returns the specified return value if the given condition is true, performs necessary cleanup actions.
 #define RET_ERR_IF(condition, cleanup, returnval)   \
@@ -80,13 +90,12 @@
 #define WRITE_ERROR -3
 #define INVALID_ARG_ERROR -4
 #define BAD_ALLOC_ERROR -5
-
-// recoverable fault
 #define BUFFER_OVERFLOW -6
 
 // specific errors
 #define DISK_FULL_ERROR -7
 #define PERMISSION_DENIED -8
+#define NOT_FOUND -9
 
 #define IS_ERROR(result) result < 0
 

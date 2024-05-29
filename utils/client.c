@@ -6,14 +6,14 @@
 
 static int client_sockfd;
 
-int custom_client_response(const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size)
+int custom_client_response(int sockfd, const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size)
 {
     int result = send_message(client_sockfd, req_buffer, req_size);
     RET_ERR_RESULT(result); 
 
     int res_size = 0;
     result = recv_message(client_sockfd, res_buffer, &res_size, max_res_size);
-    RET_ERR_RESULT(result); 
+    RET_ERR_RESULT(result);
 
     *p_res_size = res_size;
     return res_size;
@@ -48,7 +48,7 @@ void simple_client(const char *server_ip, int port, get_request_t get_request, h
 
         char res_buffer[DEFAULT_BUFFER_CAPACITY];
         int res_size = 0;
-        result = response(req_buffer, req_size, res_buffer, &res_size, DEFAULT_BUFFER_CAPACITY);
+        result = response(client_sockfd, req_buffer, req_size, res_buffer, &res_size, DEFAULT_BUFFER_CAPACITY);
         EXIT_IF(IS_ERROR(result), custom_client_close(), "Error: Could not get response.\n");
         
         result = handle_response(res_buffer, res_size, cycle);

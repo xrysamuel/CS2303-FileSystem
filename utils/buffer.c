@@ -24,7 +24,7 @@ int concat_buffer(char *target_buffer, int *p_target_size, int max_target_size, 
 }
 
 int buffer_to_str(const char *buffer, int size, char *str, int max_str_size)
-{   
+{
     RET_ERR_IF(buffer == NULL || str == NULL || size < 0 || max_str_size < 0, , INVALID_ARG_ERROR);
     RET_ERR_IF(size + 1 > max_str_size, , BUFFER_OVERFLOW);
 
@@ -49,9 +49,9 @@ int buffer_to_hex_str(const char *buffer, int size, char *str, int max_str_size)
     for (int i = 0; i < size; i++)
     {
         if (isprint(buffer[i]))
-            sprintf(str + (i * 8), "%02X('%c') ", (u_int8_t) buffer[i], buffer[i]);
+            sprintf(str + (i * 8), "%02X('%c') ", (u_int8_t)buffer[i], buffer[i]);
         else
-            sprintf(str + (i * 8), "%02X(' ') ", (u_int8_t) buffer[i]);
+            sprintf(str + (i * 8), "%02X(' ') ", (u_int8_t)buffer[i]);
     }
     str[str_len] = '\0';
     return str_len;
@@ -66,4 +66,46 @@ int str_to_buffer(const char *str, char *buffer, int *p_size, int max_size)
     strncpy(buffer, str, size);
     *p_size = size;
     return size;
+}
+
+int buffer_get_first_field(const char *buffer, int size, char *field_buffer, int *field_size, int max_field_size, char del)
+{
+    RET_ERR_IF(max_field_size <= size, , BUFFER_OVERFLOW);
+
+    *field_size = 0;
+    memset(field_buffer, 0, max_field_size);
+
+    for (int i = 0; i < size; i++)
+    {
+        if (*field_size >= max_field_size - 1)
+            break;
+
+        if (buffer[i] == del)
+            break;
+
+        field_buffer[*field_size] = buffer[i];
+        (*field_size)++;
+    }
+    return SUCCESS;
+}
+
+int cut_at_n_space(char *buffer, int size, int n, char **p_right_buffer, int *left_size, int *right_size)
+{
+    int space_count = 0;
+    for (int i = 0; i < size; i++)
+    {
+        if (buffer[i] == ' ')
+        {
+            space_count++;
+            if (space_count == n)
+            {
+                buffer[i] = '\0';
+                *p_right_buffer = &buffer[i + 1];
+                *right_size = size - i - 1;
+                *left_size = i;
+                return SUCCESS;
+            }
+        }
+    }
+    return DEFAULT_ERROR;
 }

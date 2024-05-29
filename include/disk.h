@@ -3,7 +3,7 @@
 
 #include "fsconfig.h"
 
-#define CACHE_SIZE 64
+#define CACHE_SIZE 1024
 
 void disk_init(const char *server_ip, int port);
 

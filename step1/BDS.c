@@ -99,7 +99,7 @@ int diskfile_write(char *buffer, int size, int cylinder, int sector)
     return size;
 }
 
-int response(const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size)
+int response(int sockfd, const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size)
 {
     int result;
     if (starts_with(req_buffer, req_size, "I"))
@@ -144,23 +144,12 @@ int response(const char *req_buffer, int req_size, char *res_buffer, int *p_res_
         char *req_str = (char *)malloc(req_size * sizeof(char));
         RET_ERR_IF(req_str == NULL, , BAD_ALLOC_ERROR);
         memcpy(req_str, req_buffer, req_size);
-        int space_count = 0;
-        char *data_buffer = NULL;
-        int data_buffer_size = 0;
-        for (int i = 0; i < req_size; i++)
-        {
-            if (req_str[i] == ' ')
-            {
-                space_count++;
-                if (space_count == 4)
-                {
-                    req_str[i] = '\0';
-                    data_buffer = &req_str[i + 1];
-                    data_buffer_size = req_size - i - 1;
-                }
-            }
-        }
-        RET_ERR_IF(data_buffer == NULL, free(req_str), str_to_buffer("No", res_buffer, p_res_size, max_res_size));
+        
+        char *data_buffer;
+        int data_buffer_size;
+        int req_str_size;
+        int result = cut_at_n_space(req_str, req_size, 4, &data_buffer, &req_str_size, &data_buffer_size);
+        RET_ERR_IF(IS_ERROR(result), free(req_str), str_to_buffer("No", res_buffer, p_res_size, max_res_size));
 
         // req_str -> cylinder, sector, len
         int cylinder, sector, len;
