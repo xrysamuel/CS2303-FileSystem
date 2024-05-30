@@ -60,7 +60,7 @@ int error_response(int result, struct response_arg_t arg)
     else if (result == DISK_FULL_ERROR)
         return str_to_buffer("Error: Disk is full.", arg.res_buffer, arg.p_res_size, arg.max_size);
     else if (result == PERMISSION_DENIED)
-        return str_to_buffer("Error: Permission denies.", arg.res_buffer, arg.p_res_size, arg.max_size);
+        return str_to_buffer("Error: Permission denied.", arg.res_buffer, arg.p_res_size, arg.max_size);
     else if (result == NOT_FOUND)
         return str_to_buffer("Error: Not found.", arg.res_buffer, arg.p_res_size, arg.max_size);
     else if (result == ALREADY_EXISTS)
@@ -378,13 +378,27 @@ int change_dir(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
         }
         else
         {
-            int saved_cur_inode_id = arg.p_context->cur_inode_id;
-            arg.p_context->cur_inode_id = 0;
-            struct response_arg_t sub_arg = {arg.p_context, arg.res_buffer, arg.p_res_size, arg.max_size, arg.req_buffer + field_size + 1, arg.req_size - field_size - 1}; // "path/to/target" -> "to/target"
-            result = fs_operation_wrapper(change_dir, sub_arg, READ_AUTH);
-            // roll back
-            RET_ERR_IF(IS_ERROR(result), arg.p_context->cur_inode_id = saved_cur_inode_id, result);
-            return SUCCESS;
+            for (int i = 0; i < *p_n_entries; i++)
+            {
+                struct inode_t inode;
+                result = get_inode((*p_entries)[i].inode_id, &inode);
+                RET_ERR_RESULT(result);
+                if (strncmp((*p_entries)[i].name, field_buffer, MAX_NAME_LEN) == 0 && IS_MODE(MODE_DIR, inode.mode))
+                {
+                    // authorize
+                    result = authorize(arg.p_context, &inode, READ_AUTH);
+                    RET_ERR_IF(IS_ERROR(result), , result);
+
+                    int saved_cur_inode_id = arg.p_context->cur_inode_id;
+                    arg.p_context->cur_inode_id = (*p_entries)[i].inode_id;
+                    struct response_arg_t sub_arg = {arg.p_context, arg.res_buffer, arg.p_res_size, arg.max_size, arg.req_buffer + field_size + 1, arg.req_size - field_size - 1}; // "path/to/target" -> "to/target"
+                    result = fs_operation_wrapper(change_dir, sub_arg, READ_AUTH);
+                    // roll back
+                    RET_ERR_IF(IS_ERROR(result), arg.p_context->cur_inode_id = saved_cur_inode_id, result);
+                    return SUCCESS;
+                }
+            }
+            return NOT_FOUND;
         }
     }
     return SUCCESS;
