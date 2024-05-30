@@ -390,6 +390,15 @@ int change_dir(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
     return SUCCESS;
 }
 
+int catch_file_kernel(int inode_id, int size, char *data_buffer, int *data_size, int max_data_size)
+{
+    RET_ERR_IF(size > max_data_size, , BUFFER_OVERFLOW);
+    int result = inode_file_read(inode_id, data_buffer, 0, size);
+    RET_ERR_RESULT(result);
+    *data_size = size;
+    return SUCCESS;
+}
+
 int catch_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
 {
     int result;
@@ -407,37 +416,45 @@ int catch_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
             RET_ERR_RESULT(result);
 
             // read file
-            RET_ERR_IF(inode.size > arg.max_size, , BUFFER_OVERFLOW);
-            result = inode_file_read(inode_id, arg.res_buffer, 0, inode.size);
+            result = catch_file_kernel(inode_id, inode.size, arg.res_buffer, arg.p_res_size, arg.max_size);
             RET_ERR_RESULT(result);
-            *arg.p_res_size = inode.size;
             return SUCCESS;
         }
     }
     return NOT_FOUND;
 }
 
+int write_file_kernel(int inode_id, int len, const char *data_buffer)
+{
+    int result;
+    // resize
+    result = inode_file_resize(inode_id, len);
+    RET_ERR_RESULT(result);
+
+    // write file
+    result = inode_file_write(inode_id, data_buffer, 0, len);
+    RET_ERR_RESULT(result);
+
+    return SUCCESS;
+}
+
 int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
 {
     int result;
 
-    // parse
+    // parse: <filename> <#len> <data>
     char *req_buffer = (char *)malloc(arg.req_size);
     RET_ERR_IF(req_buffer == NULL, , BAD_ALLOC_ERROR);
     memcpy(req_buffer, arg.req_buffer, arg.req_size);
     int req_size = arg.req_size;
 
-    char *data_buffer;
-    int data_size;
+    char *data_buffer, *len_buffer;
+    int data_size, len_size;
     result = cut_at_n_space(req_buffer, req_size, 2, &data_buffer, &req_size, &data_size);
     RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-
-    char *len_buffer;
-    int len_size;
     result = cut_at_n_space(req_buffer, req_size, 1, &len_buffer, &req_size, &len_size);
     RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-    // check len
     int len = atoi(len_buffer);
     RET_ERR_IF(len != data_size, free(req_buffer), DEFAULT_ERROR);
 
@@ -454,12 +471,8 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
             result = authorize(arg.p_context, &inode, WRITE_AUTH);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-            // resize
-            result = inode_file_resize(inode_id, len);
-            RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-
-            // write file
-            result = inode_file_write(inode_id, data_buffer, 0, len);
+            // write
+            result = write_file_kernel(inode_id, len, data_buffer);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
             free(req_buffer);
@@ -470,32 +483,51 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
     return NOT_FOUND;
 }
 
+int insert_file_kernel(int inode_id, int size, int pos, int len, const char *data_buffer)
+{
+    int result;
+    // resize
+    pos = (pos > size) ? size : pos;
+    int target_size = size + len;
+    result = inode_file_resize(inode_id, target_size);
+    RET_ERR_IF(IS_ERROR(result), , result);
+
+    // read file
+    char *buffer = (char *)malloc(size - pos);
+    RET_ERR_IF(buffer == NULL, , BAD_ALLOC_ERROR);
+    result = inode_file_read(inode_id, buffer, pos, size - pos);
+    RET_ERR_IF(IS_ERROR(result), free(buffer), result);
+
+    // write file
+    result = inode_file_write(inode_id, data_buffer, pos, len);
+    RET_ERR_IF(IS_ERROR(result), free(buffer), result);
+    result = inode_file_write(inode_id, buffer, pos + len, size - pos);
+    RET_ERR_IF(IS_ERROR(result), free(buffer), result);
+
+    free(buffer);
+    return SUCCESS;
+}
+
 int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
 {
     int result;
 
-    // parse
+    // parse: <filename> <#pos> <#len> <data>
     char *req_buffer = (char *)malloc(arg.req_size);
     RET_ERR_IF(req_buffer == NULL, , BAD_ALLOC_ERROR);
     memcpy(req_buffer, arg.req_buffer, arg.req_size);
     int req_size = arg.req_size;
 
-    char *data_buffer;
-    int data_size;
+    char *data_buffer, *len_buffer, *pos_buffer;
+    int data_size, len_size, pos_size;
+
     result = cut_at_n_space(req_buffer, req_size, 3, &data_buffer, &req_size, &data_size);
     RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-
-    char *len_buffer;
-    int len_size;
     result = cut_at_n_space(req_buffer, req_size, 2, &len_buffer, &req_size, &len_size);
     RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-
-    char *pos_buffer;
-    int pos_size;
     result = cut_at_n_space(req_buffer, req_size, 1, &pos_buffer, &req_size, &pos_size);
     RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-    // check len
     int len = atoi(len_buffer);
     int pos = atoi(pos_buffer);
     RET_ERR_IF(len != data_size || pos < 0, free(req_buffer), DEFAULT_ERROR);
@@ -513,25 +545,10 @@ int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t 
             result = authorize(arg.p_context, &inode, WRITE_AUTH);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-            // resize
-            pos = (pos > inode.size) ? inode.size : pos;
-            int target_size = inode.size + len;
-            result = inode_file_resize(inode_id, target_size);
+            // insert file
+            result = insert_file_kernel(inode_id, inode.size, pos, len, data_buffer);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-
-            // read file
-            char *buffer = (char *)malloc(inode.size - pos);
-            RET_ERR_IF(buffer == NULL, , BAD_ALLOC_ERROR);
-            result = inode_file_read(inode_id, buffer, pos, inode.size - pos);
-            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
-
-            // write file
-            result = inode_file_write(inode_id, data_buffer, pos, len);
-            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
-            result = inode_file_write(inode_id, buffer, pos + len, inode.size - pos);
-            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
-
-            free(buffer);
+            
             free(req_buffer);
             return SUCCESS;
         }
@@ -540,28 +557,51 @@ int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t 
     return NOT_FOUND;
 }
 
+int delete_in_file_kernel(int inode_id, int size, int pos, int len)
+{
+    int result;
+
+    int end = pos + len;
+    end = (end > size) ? size : end;
+    len = end - pos;
+    int target_size = size - len;
+
+    // read file
+    char *buffer = (char *)malloc(size - end);
+    RET_ERR_IF(buffer == NULL, , BAD_ALLOC_ERROR);
+    result = inode_file_read(inode_id, buffer, end, size - end);
+    RET_ERR_IF(IS_ERROR(result), free(buffer), result);
+
+    // write file
+    result = inode_file_write(inode_id, buffer, pos, size - end);
+    RET_ERR_IF(IS_ERROR(result), free(buffer), result);
+
+    // resize
+    result = inode_file_resize(inode_id, target_size);
+    RET_ERR_IF(IS_ERROR(result), free(buffer), result);
+
+    free(buffer);
+    return SUCCESS;
+}
+
 
 int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
 {
     int result;
 
-    // parse
+    // parse: <filename> <#pos> <#len>
     char *req_buffer = (char *)malloc(arg.req_size);
     RET_ERR_IF(req_buffer == NULL, , BAD_ALLOC_ERROR);
     memcpy(req_buffer, arg.req_buffer, arg.req_size);
     int req_size = arg.req_size;
 
-    char *len_buffer;
-    int len_size;
+    char *len_buffer, *pos_buffer;
+    int len_size, pos_size;
     result = cut_at_n_space(req_buffer, req_size, 2, &len_buffer, &req_size, &len_size);
     RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-
-    char *pos_buffer;
-    int pos_size;
     result = cut_at_n_space(req_buffer, req_size, 1, &pos_buffer, &req_size, &pos_size);
     RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-    // check len
     int len = atoi(len_buffer);
     int pos = atoi(pos_buffer);
     RET_ERR_IF(len < 0 || pos < 0, free(req_buffer), DEFAULT_ERROR);
@@ -579,27 +619,11 @@ int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry
             result = authorize(arg.p_context, &inode, WRITE_AUTH);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-            int end = pos + len;
-            end = (end > inode.size) ? inode.size : end;
-            len = end - pos;
-            int target_size = inode.size - len;
-
-            // read file
-            char *buffer = (char *)malloc(inode.size - end);
+            // delete in file
+            result = delete_in_file_kernel(inode_id, inode.size, pos, len);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-            result = inode_file_read(inode_id, buffer, end, inode.size - end);
-            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
-
-            // write file
-            result = inode_file_write(inode_id, buffer, pos, inode.size - end);
-            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
-
-            // resize
-            result = inode_file_resize(inode_id, target_size);
-            RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(buffer), result);
 
             free(req_buffer);
-            free(buffer);
             return SUCCESS;
         }
     }
