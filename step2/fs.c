@@ -3,6 +3,7 @@
 #include "fsconfig.h"
 #include "inodes.h"
 #include "buffer.h"
+#include "blocks.h"
 
 int cur_inode_id;
 
@@ -30,9 +31,10 @@ int fs_format()
 
     // create "..", ".", /home/, /passwd
     int home_inode_id, passwd_inode_id;
-    result = create_inode(&home_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GW | MODE_GX | MODE_OR | MODE_OW | MODE_OX | MODE_DIR, ROOT_UID, ROOT_GID);
-    RET_ERR_RESULT(result);
     result = create_inode(&passwd_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GX | MODE_OR | MODE_OX, ROOT_UID, ROOT_GID);
+    RET_ERR_RESULT(result);
+    RET_ERR_IF(passwd_inode_id != PASSWD_INODE_ID, , DEFAULT_ERROR);
+    result = create_inode(&home_inode_id, MODE_UR | MODE_UW | MODE_UX | MODE_GR | MODE_GW | MODE_GX | MODE_OR | MODE_OW | MODE_OX | MODE_DIR, ROOT_UID, ROOT_GID);
     RET_ERR_RESULT(result);
 
     result = inode_file_resize(inode_id, 4 * DIR_ENTRY_SIZE);
@@ -112,7 +114,6 @@ int authorize(const struct context_t *p_context, struct inode_t *p_inode, enum a
 int fs_operation_wrapper(fs_op_t fs_op, struct response_arg_t arg, enum auth_t auth)
 {
     int result;
-    struct dir_entry_t entries_for_debug[64];
 
     // get the inode of current working directory
     struct inode_t inode;
@@ -128,23 +129,14 @@ int fs_operation_wrapper(fs_op_t fs_op, struct response_arg_t arg, enum auth_t a
     result = inode_file_read(cur_inode_id, (char *)entries, 0, inode.size);
     RET_ERR_IF(IS_ERROR(result), free(entries), error_response(result, arg));
 
-    for (int i = 0; i < n_entries; i++)
-    {
-        entries_for_debug[i] = entries[i];
-    }
-
     // authorize
     result = authorize(arg.p_context, &inode, auth);
     RET_ERR_IF(IS_ERROR(result), free(entries), error_response(result, arg));
 
     // do some operations
+    *arg.p_res_size = 0;
     result = fs_op(arg, &n_entries, &entries);
     RET_ERR_IF(IS_ERROR(result), free(entries), error_response(result, arg));
-
-    for (int i = 0; i < n_entries; i++)
-    {
-        entries_for_debug[i] = entries[i];
-    }
 
     // n_entries, entries may has been changed
     // save the changes !!!
@@ -232,6 +224,9 @@ int make_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **
     free(*p_entries);
     *p_entries = new_entries;
     *p_n_entries = *p_n_entries + 1;
+
+    result = str_to_buffer("Success.", arg.res_buffer, arg.p_res_size, arg.max_size);
+    RET_ERR_RESULT(result);
     return SUCCESS;
 }
 
@@ -300,6 +295,9 @@ int make_dir(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p
     free(*p_entries);
     *p_entries = new_entries;
     *p_n_entries = *p_n_entries + 1;
+
+    result = str_to_buffer("Success.", arg.res_buffer, arg.p_res_size, arg.max_size);
+    RET_ERR_RESULT(result);
     return SUCCESS;
 }
 
@@ -325,6 +323,9 @@ int remove_dir(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
             // remove its entry from cwd
             (*p_entries)[i] = (*p_entries)[*p_n_entries - 1];
             *p_n_entries = *p_n_entries - 1;
+
+            result = str_to_buffer("Success.", arg.res_buffer, arg.p_res_size, arg.max_size);
+            RET_ERR_RESULT(result);
             return SUCCESS;
         }
     }
@@ -366,7 +367,7 @@ int change_dir(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
                 struct inode_t inode;
                 result = get_inode((*p_entries)[i].inode_id, &inode);
                 RET_ERR_RESULT(result);
-                if (strncmp((*p_entries)[i].name, field_buffer, MAX_NAME_LEN) == 0 && IS_MODE(MODE_DIR, inode.mode))
+                if (MATCHES_QUERY((*p_entries)[i].name, field_buffer, field_size) && IS_MODE(MODE_DIR, inode.mode))
                 {
                     result = authorize(arg.p_context, &inode, READ_AUTH);
                     RET_ERR_IF(IS_ERROR(result), , result);
@@ -383,7 +384,7 @@ int change_dir(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
                 struct inode_t inode;
                 result = get_inode((*p_entries)[i].inode_id, &inode);
                 RET_ERR_RESULT(result);
-                if (strncmp((*p_entries)[i].name, field_buffer, MAX_NAME_LEN) == 0 && IS_MODE(MODE_DIR, inode.mode))
+                if (MATCHES_QUERY((*p_entries)[i].name, field_buffer, field_size) && IS_MODE(MODE_DIR, inode.mode))
                 {
                     // authorize
                     result = authorize(arg.p_context, &inode, READ_AUTH);
@@ -416,6 +417,7 @@ int catch_file_kernel(int inode_id, int size, char *data_buffer, int *data_size,
 int catch_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
 {
     int result;
+    RET_ERR_IF(arg.req_size >= MAX_NAME_LEN, , BUFFER_OVERFLOW);
 
     for (int i = 0; i < *p_n_entries; i++)
     {
@@ -423,7 +425,7 @@ int catch_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
         int inode_id = (*p_entries)[i].inode_id;
         result = get_inode(inode_id, &inode);
         RET_ERR_RESULT(result);
-        if (strncmp((*p_entries)[i].name, arg.req_buffer, arg.req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
+        if (MATCHES_QUERY((*p_entries)[i].name, arg.req_buffer, arg.req_size) && !IS_MODE(MODE_DIR, inode.mode))
         {
             // authorize
             result = authorize(arg.p_context, &inode, READ_AUTH);
@@ -471,6 +473,7 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
 
     int len = atoi(len_buffer);
     RET_ERR_IF(len != data_size, free(req_buffer), DEFAULT_ERROR);
+    RET_ERR_IF(req_size >= MAX_NAME_LEN, free(req_buffer), BUFFER_OVERFLOW);
 
     for (int i = 0; i < *p_n_entries; i++)
     {
@@ -479,7 +482,7 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
         result = get_inode(inode_id, &inode);
         RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-        if (strncmp((*p_entries)[i].name, req_buffer, req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
+        if (MATCHES_QUERY((*p_entries)[i].name, req_buffer, req_size) && !IS_MODE(MODE_DIR, inode.mode))
         {
             // authorize
             result = authorize(arg.p_context, &inode, WRITE_AUTH);
@@ -490,6 +493,56 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
             free(req_buffer);
+
+            result = str_to_buffer("Success.", arg.res_buffer, arg.p_res_size, arg.max_size);
+            RET_ERR_RESULT(result);
+            return SUCCESS;
+        }
+    }
+    free(req_buffer);
+    return NOT_FOUND;
+}
+
+int chmod_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
+{
+    int result;
+
+    // parse: <filename> <#mode>
+    char *req_buffer = (char *)malloc(arg.req_size);
+    RET_ERR_IF(req_buffer == NULL, , BAD_ALLOC_ERROR);
+    memcpy(req_buffer, arg.req_buffer, arg.req_size);
+    int req_size = arg.req_size;
+
+    char *mode_buffer;
+    int mode_size;
+    result = cut_at_n_space(req_buffer, req_size, 1, &mode_buffer, &req_size, &mode_size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    int mode = atoi(mode_buffer);
+    RET_ERR_IF(req_size >= MAX_NAME_LEN, free(req_buffer), BUFFER_OVERFLOW);
+
+    for (int i = 0; i < *p_n_entries; i++)
+    {
+        struct inode_t inode;
+        int inode_id = (*p_entries)[i].inode_id;
+        result = get_inode(inode_id, &inode);
+        RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+        if (MATCHES_QUERY((*p_entries)[i].name, req_buffer, req_size) && !IS_MODE(MODE_DIR, inode.mode))
+        {
+            // authorize
+            result = authorize(arg.p_context, &inode, WRITE_AUTH);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+            // change mode
+            inode.mode = mode;
+
+            // write inode
+            result = write_inode(inode_id, &inode);
+            RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+            result = str_to_buffer("Success.", arg.res_buffer, arg.p_res_size, arg.max_size);
+            RET_ERR_RESULT(result);
             return SUCCESS;
         }
     }
@@ -545,6 +598,7 @@ int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t 
     int len = atoi(len_buffer);
     int pos = atoi(pos_buffer);
     RET_ERR_IF(len != data_size || pos < 0, free(req_buffer), DEFAULT_ERROR);
+    RET_ERR_IF(req_size >= MAX_NAME_LEN, free(req_buffer), BUFFER_OVERFLOW);
 
     for (int i = 0; i < *p_n_entries; i++)
     {
@@ -553,7 +607,7 @@ int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t 
         result = get_inode(inode_id, &inode);
         RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-        if (strncmp((*p_entries)[i].name, req_buffer, req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
+        if (MATCHES_QUERY((*p_entries)[i].name, req_buffer, req_size) && !IS_MODE(MODE_DIR, inode.mode))
         {
             // authorize
             result = authorize(arg.p_context, &inode, WRITE_AUTH);
@@ -562,8 +616,11 @@ int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t 
             // insert file
             result = insert_file_kernel(inode_id, inode.size, pos, len, data_buffer);
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
-            
+
             free(req_buffer);
+
+            result = str_to_buffer("Success.", arg.res_buffer, arg.p_res_size, arg.max_size);
+            RET_ERR_RESULT(result);
             return SUCCESS;
         }
     }
@@ -598,7 +655,6 @@ int delete_in_file_kernel(int inode_id, int size, int pos, int len)
     return SUCCESS;
 }
 
-
 int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
 {
     int result;
@@ -619,6 +675,7 @@ int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry
     int len = atoi(len_buffer);
     int pos = atoi(pos_buffer);
     RET_ERR_IF(len < 0 || pos < 0, free(req_buffer), DEFAULT_ERROR);
+    RET_ERR_IF(req_size >= MAX_NAME_LEN, free(req_buffer), BUFFER_OVERFLOW);
 
     for (int i = 0; i < *p_n_entries; i++)
     {
@@ -627,7 +684,7 @@ int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry
         result = get_inode(inode_id, &inode);
         RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-        if (strncmp((*p_entries)[i].name, req_buffer, req_size) == 0 && !IS_MODE(MODE_DIR, inode.mode))
+        if (MATCHES_QUERY((*p_entries)[i].name, req_buffer, req_size) && !IS_MODE(MODE_DIR, inode.mode))
         {
             // authorize
             result = authorize(arg.p_context, &inode, WRITE_AUTH);
@@ -638,9 +695,147 @@ int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry
             RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
             free(req_buffer);
+
+            result = str_to_buffer("Success.", arg.res_buffer, arg.p_res_size, arg.max_size);
+            RET_ERR_RESULT(result);
             return SUCCESS;
         }
     }
     free(req_buffer);
+    return NOT_FOUND;
+}
+
+int change_account(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
+{
+    int result;
+
+    // parse <account name> <password>
+    char *req_buffer = (char *)malloc(arg.req_size);
+    RET_ERR_IF(req_buffer == NULL, , BAD_ALLOC_ERROR);
+    memcpy(req_buffer, arg.req_buffer, arg.req_size);
+    int req_size = arg.req_size;
+
+    char *password_buffer;
+    int password_size;
+    result = cut_at_n_space(req_buffer, req_size, 1, &password_buffer, &req_size, &password_size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    RET_ERR_IF(req_size >= MAX_USERNAME_LEN, free(req_buffer), result);
+    RET_ERR_IF(password_size >= MAX_PASSWORD_LEN, free(req_buffer), result);
+
+    // get the inode of passwd
+    struct inode_t passwd_inode;
+    result = get_inode(PASSWD_INODE_ID, &passwd_inode);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    int n_acc_entries = passwd_inode.size / ACC_ENTRY_SIZE;
+    struct acc_entry_t *acc_entries = (struct acc_entry_t *)malloc(passwd_inode.size);
+    RET_ERR_IF(acc_entries == NULL, free(req_buffer), BAD_ALLOC_ERROR);
+
+    result = inode_file_read(PASSWD_INODE_ID, (char *)acc_entries, 0, passwd_inode.size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(acc_entries), result);
+
+    // search for account
+    for (int i = 0; i < n_acc_entries; i++)
+    {
+        if (MATCHES_QUERY(acc_entries[i].name, req_buffer, req_size) && acc_entries[i].uid == i)
+        {
+            if (MATCHES_QUERY(acc_entries[i].password, password_buffer, password_size))
+            {
+                arg.p_context->uid = i;
+                arg.p_context->gid = acc_entries[i].gid;
+                free(req_buffer);
+                free(acc_entries);
+
+                result = str_to_buffer("Change to existed account.", arg.res_buffer, arg.p_res_size, arg.max_size);
+                RET_ERR_RESULT(result);
+                return SUCCESS;
+            }
+            else
+            {
+                free(req_buffer);
+                free(acc_entries);
+                return PERMISSION_DENIED;
+            }
+        }
+    }
+
+    // not found, then append
+    struct acc_entry_t new_acc;
+    new_acc.gid = 0;
+    new_acc.uid = n_acc_entries;
+    result = buffer_to_str(req_buffer, req_size, new_acc.name, MAX_NAME_LEN);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(acc_entries), result);
+    result = buffer_to_str(password_buffer, password_size, new_acc.password, MAX_NAME_LEN);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(acc_entries), result);
+    result = insert_file_kernel(PASSWD_INODE_ID, passwd_inode.size, passwd_inode.size, ACC_ENTRY_SIZE, (char *)&new_acc);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(acc_entries), result);
+
+    free(req_buffer);
+    free(acc_entries);
+    result = str_to_buffer("New account created.", arg.res_buffer, arg.p_res_size, arg.max_size);
+    RET_ERR_RESULT(result);
+    return SUCCESS;
+}
+
+int remove_account(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries)
+{
+    int result;
+
+    // parse <account name> <password>
+    char *req_buffer = (char *)malloc(arg.req_size);
+    RET_ERR_IF(req_buffer == NULL, , BAD_ALLOC_ERROR);
+    memcpy(req_buffer, arg.req_buffer, arg.req_size);
+    int req_size = arg.req_size;
+
+    char *password_buffer;
+    int password_size;
+    result = cut_at_n_space(req_buffer, req_size, 1, &password_buffer, &req_size, &password_size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    RET_ERR_IF(req_size >= MAX_USERNAME_LEN, free(req_buffer), result);
+    RET_ERR_IF(password_size >= MAX_PASSWORD_LEN, free(req_buffer), result);
+
+    // get the inode of passwd
+    struct inode_t passwd_inode;
+    result = get_inode(PASSWD_INODE_ID, &passwd_inode);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
+
+    int n_acc_entries = passwd_inode.size / ACC_ENTRY_SIZE;
+    struct acc_entry_t *acc_entries = (struct acc_entry_t *)malloc(passwd_inode.size);
+    RET_ERR_IF(acc_entries == NULL, free(req_buffer), BAD_ALLOC_ERROR);
+
+    result = inode_file_read(PASSWD_INODE_ID, (char *)acc_entries, 0, passwd_inode.size);
+    RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(acc_entries), result);
+
+    // search for account
+    for (int i = 0; i < n_acc_entries; i++)
+    {
+        if (MATCHES_QUERY(acc_entries[i].name, req_buffer, req_size) && acc_entries[i].uid == i)
+        {
+            if (MATCHES_QUERY(acc_entries[i].password, password_buffer, password_size))
+            {
+                // invalidate account
+                acc_entries[i].uid = -1;
+                result = inode_file_write(PASSWD_INODE_ID, (char *)acc_entries, 0, passwd_inode.size);
+                RET_ERR_IF(IS_ERROR(result), free(req_buffer); free(acc_entries), result);
+
+                free(req_buffer);
+                free(acc_entries);
+
+                result = str_to_buffer("Account removed.", arg.res_buffer, arg.p_res_size, arg.max_size);
+                RET_ERR_RESULT(result);
+                return SUCCESS;
+            }
+            else
+            {
+                free(req_buffer);
+                free(acc_entries);
+                return PERMISSION_DENIED;
+            }
+        }
+    }
+    free(req_buffer);
+    free(acc_entries);
     return NOT_FOUND;
 }

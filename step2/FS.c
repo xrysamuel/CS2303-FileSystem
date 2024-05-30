@@ -7,116 +7,6 @@
 struct context_t contexts[MAX_CLIENTS]; // contexts[0] used as internal context
 sem_t response_mutex;
 
-int response(int sockfd, const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size);
-
-// cacc <uid>
-int change_account(int client_sockfd, const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size)
-{
-    int uid = atoi(req_buffer);
-
-    char req[DEFAULT_BUFFER_CAPACITY];
-    char res[DEFAULT_BUFFER_CAPACITY];
-    int res_size;
-
-    int result;
-
-    snprintf(req, DEFAULT_BUFFER_CAPACITY, "cd /");
-    result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-    RET_ERR_RESULT(result);
-
-    snprintf(req, DEFAULT_BUFFER_CAPACITY, "cat passwd");
-    result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-    RET_ERR_RESULT(result);
-
-    res[res_size] = '\0';
-    char *token = strtok(res, " ");
-    while (token != NULL)
-    {
-        int num = atoi(token);
-        if (num == uid)
-        {
-            contexts[client_sockfd].uid = uid;
-            return str_to_buffer("Changed to existed account.", res_buffer, p_res_size, max_res_size);
-        }
-        token = strtok(NULL, " ");
-    }
-
-    snprintf(req, DEFAULT_BUFFER_CAPACITY, "cat passwd");
-    result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-    RET_ERR_RESULT(result);
-    res[res_size] = '\0';
-
-    char uid_str[20];
-    snprintf(uid_str, 20, "%d", uid);
-    snprintf(req, DEFAULT_BUFFER_CAPACITY, "w passwd %li %s %s", strlen(uid_str) + strlen(res) + 1, uid_str, res);
-    result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-    RET_ERR_RESULT(result);
-
-    snprintf(req, DEFAULT_BUFFER_CAPACITY, "cd /home");
-    result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-    RET_ERR_RESULT(result);
-
-    contexts[0].uid = uid;
-    snprintf(req, DEFAULT_BUFFER_CAPACITY, "mkdir home-%d", uid);
-    result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-    contexts[0].uid = 0;
-    RET_ERR_RESULT(result);
-
-    return str_to_buffer("Created new account.", res_buffer, p_res_size, max_res_size);
-}
-
-// rmacc <uid>
-int remove_account(int client_sockfd, const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size)
-{
-    int uid = atoi(req_buffer);
-
-    char req[DEFAULT_BUFFER_CAPACITY];
-    char res[DEFAULT_BUFFER_CAPACITY];
-    int res_size;
-
-    int result;
-    snprintf(req, DEFAULT_BUFFER_CAPACITY, "cd /");
-    result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-    RET_ERR_RESULT(result);
-
-    snprintf(req, DEFAULT_BUFFER_CAPACITY, "cat passwd");
-    result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-    RET_ERR_RESULT(result);
-
-    char *token = strtok(res, " ");
-    int offset = 0;
-    bool found = false;
-    while (token != NULL)
-    {
-        int num = atoi(token);
-        if (num == uid)
-        {
-            found = true;
-            break;
-        }
-        offset += strlen(token) + 1;
-        token = strtok(NULL, " ");
-    }
-
-    if (found)
-    {
-        char uid_str[20];
-        snprintf(uid_str, 20, "%d", uid);
-        snprintf(req, DEFAULT_BUFFER_CAPACITY, "d passwd %i %li", offset, strlen(uid_str) + 1);
-        result = response(0, req, strlen(req), res, &res_size, DEFAULT_BUFFER_CAPACITY);
-        RET_ERR_RESULT(result);
-        if (contexts[client_sockfd].uid == uid)
-        {
-            contexts[client_sockfd].uid = 0;
-        }
-        return str_to_buffer("Removed.", res_buffer, p_res_size, max_res_size);
-    }
-    else
-    {
-        return str_to_buffer("Not found.", res_buffer, p_res_size, max_res_size);
-    }
-}
-
 int response(int sockfd, const char *req_buffer, int req_size, char *res_buffer, int *p_res_size, int max_res_size)
 {
     if (starts_with(req_buffer, req_size, "f"))
@@ -175,15 +65,18 @@ int response(int sockfd, const char *req_buffer, int req_size, char *res_buffer,
     }
     else if (starts_with(req_buffer, req_size, "cacc "))
     {
-        int result = change_account(sockfd, req_buffer + 5, req_size - 5, res_buffer, p_res_size, max_res_size);
-        RET_ERR_IF(IS_ERROR(result), , str_to_buffer("Error.", res_buffer, p_res_size, max_res_size));
-        return SUCCESS;
+        struct response_arg_t arg = {&contexts[sockfd], res_buffer, p_res_size, max_res_size, req_buffer + 5, req_size - 5};
+        return fs_operation_wrapper(change_account, arg, WRITE_AUTH);
     }
     else if (starts_with(req_buffer, req_size, "rmacc "))
     {
-        int result = remove_account(sockfd, req_buffer + 6, req_size - 6, res_buffer, p_res_size, max_res_size);
-        RET_ERR_IF(IS_ERROR(result), , str_to_buffer("Error.", res_buffer, p_res_size, max_res_size));
-        return SUCCESS;
+        struct response_arg_t arg = {&contexts[sockfd], res_buffer, p_res_size, max_res_size, req_buffer + 6, req_size - 6};
+        return fs_operation_wrapper(remove_account, arg, WRITE_AUTH);
+    }
+    else if (starts_with(req_buffer, req_size, "chmod "))
+    {
+        struct response_arg_t arg = {&contexts[sockfd], res_buffer, p_res_size, max_res_size, req_buffer + 6, req_size - 6};
+        return fs_operation_wrapper(chmod_file, arg, WRITE_AUTH);
     }
     else if (starts_with(req_buffer, req_size, "e"))
     {

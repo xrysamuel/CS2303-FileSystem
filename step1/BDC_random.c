@@ -42,15 +42,15 @@ int get_request(char *req_buffer, int *p_req_size, int max_req_size, int cycle)
         {
             n_print = snprintf(req_buffer, max_req_size, "R %d %d", randint(0, n_cylinders), randint(0, n_sectors));
             RET_ERR_IF(n_print >= max_req_size, , BUFFER_OVERFLOW);
+            printf("> R\n");
         }
         else
         {
-            int size = randint(10, 600); // size of write data
-            n_print = snprintf(req_buffer, max_req_size, "W %d %d %d %s", randint(0, n_cylinders), randint(0, n_sectors), size, randstr(size));
+            n_print = snprintf(req_buffer, max_req_size, "W %d %d %d %s", randint(0, n_cylinders), randint(0, n_sectors), 256, randstr(256));
             RET_ERR_IF(n_print >= max_req_size, , BUFFER_OVERFLOW);
+            printf("> W\n");
         }
     }
-    printf("> %s\n", req_buffer);
 
     *p_req_size = strlen(req_buffer);
     return *p_req_size;

@@ -2,6 +2,8 @@
 #define FS_H
 
 #define MAX_NAME_LEN 252 // including \0
+#define MAX_USERNAME_LEN 252
+#define MAX_PASSWORD_LEN 248
 
 #include "common.h"
 
@@ -29,6 +31,7 @@ struct context_t
 #define ROOT_INODE_ID 0
 #define ROOT_UID 0
 #define ROOT_GID 0
+#define PASSWD_INODE_ID 1
 
 struct dir_entry_t
 {
@@ -36,7 +39,16 @@ struct dir_entry_t
     int inode_id;
 };
 
+struct acc_entry_t
+{
+    char name[MAX_USERNAME_LEN];
+    char password[MAX_PASSWORD_LEN];
+    int uid; // < 0 means invalid
+    int gid;
+};
+
 #define DIR_ENTRY_SIZE sizeof(struct dir_entry_t)
+#define ACC_ENTRY_SIZE sizeof(struct acc_entry_t)
 
 enum auth_t
 {
@@ -86,5 +98,13 @@ int write_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
 int insert_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries);
 
 int delete_in_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries);
+
+int change_account(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries);
+
+int remove_account(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries);
+
+int chmod_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t **p_entries);
+
+#define MATCHES_QUERY(key, query, query_size) (strncmp((key), (query), (query_size)) == 0 && strlen(key) == (query_size))
 
 #endif

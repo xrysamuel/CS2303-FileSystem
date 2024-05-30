@@ -48,40 +48,40 @@ File reading and writing, file or directory reading and writing, file or directo
 > f
 
 > ls
-drwxrwxrwx     0     0       1024 May 30 16:30 ..
-drwxrwxrwx     0     0       1024 May 30 16:30 .
-drwxrwxrwx     0     0        512 May 30 16:30 home
--rwxr-xr-x     0     0          0 May 30 16:30 passwd
+drwxrwxrwx     0     0       1024 May 30 23:49 ..
+drwxrwxrwx     0     0       1024 May 30 23:49 .
+drwxrwxrwx     0     0        512 May 30 23:49 home
+-rwxr-xr-x     0     0          0 May 30 23:49 passwd
 
 > mk file
-
+Success.
 > mkdir dir
-
+Success.
 > ls
-drwxrwxrwx     0     0       1536 May 30 16:31 ..
-drwxrwxrwx     0     0       1536 May 30 16:31 .
-drwxrwxrwx     0     0        512 May 30 16:30 home
--rwxr-xr-x     0     0          0 May 30 16:30 passwd
--rwxr-xr-x     0     0          0 May 30 16:30 file
-drwxr-xr-x     0     0        512 May 30 16:31 dir
+drwxrwxrwx     0     0       1536 May 30 23:49 ..
+drwxrwxrwx     0     0       1536 May 30 23:49 .
+drwxrwxrwx     0     0        512 May 30 23:49 home
+-rwxr-xr-x     0     0          0 May 30 23:49 passwd
+-rwxr-xr-x     0     0          0 May 30 23:49 file
+drwxr-xr-x     0     0        512 May 30 23:49 dir
 
 > rmdir dir
-
+Success.
 > w file 10 0123456789
-
+Success.
 > i file 3 3 abc
-
+Success.
 > d file 8 2
-
+Success.
 > cat file
 012abc34789
 > rm file
-
-> ls    
-drwxrwxrwx     0     0       1024 May 30 16:32 ..
-drwxrwxrwx     0     0       1024 May 30 16:32 .
-drwxrwxrwx     0     0        512 May 30 16:30 home
--rwxr-xr-x     0     0          0 May 30 16:30 passwd
+Success.
+> ls
+drwxrwxrwx     0     0       1024 May 30 23:49 ..
+drwxrwxrwx     0     0       1024 May 30 23:49 .
+drwxrwxrwx     0     0        512 May 30 23:49 home
+-rwxr-xr-x     0     0          0 May 30 23:49 passwd
 
 > e
 ```
@@ -100,146 +100,186 @@ drwxr-xr-x     0     1        768 May 30 17:09 layer1
 Change directory:
 
 ```
-> ls        
-drwxrwxrwx     0     0       1280 May 30 16:40 ..
-drwxrwxrwx     0     0       1280 May 30 16:40 .
-drwxrwxrwx     0     0       1024 May 30 16:40 home
--rwxr-xr-x     0     0          4 May 30 16:34 passwd
-drwxr-xr-x     0     1        768 May 30 16:40 layer1
-
+> mkdir layer1
+Success.
 > cd layer1
 
-> ls
-drwxrwxrwx     0     0       1280 May 30 16:41 ..
-drwxr-xr-x     0     1        768 May 30 16:40 .
-drwxr-xr-x     0     1        768 May 30 16:40 layer2
-
+> mkdir layer2
+Success.
 > cd layer2
 
-> ls
-drwxr-xr-x     0     1        768 May 30 16:41 ..
-drwxr-xr-x     0     1        768 May 30 16:40 .
-drwxr-xr-x     0     1        512 May 30 16:40 layer3
-
+> mkdir layer3
+Success.
 > cd layer3
-
-> ls
-drwxr-xr-x     0     1        768 May 30 16:41 ..
-drwxr-xr-x     0     1        512 May 30 16:40 .
 
 > cd ../../..
 
 > ls
-drwxrwxrwx     0     0       1280 May 30 16:41 ..
-drwxrwxrwx     0     0       1280 May 30 16:41 .
-drwxrwxrwx     0     0       1024 May 30 16:40 home
--rwxr-xr-x     0     0          4 May 30 16:34 passwd
-drwxr-xr-x     0     1        768 May 30 16:41 layer1
+drwxrwxrwx     0     0       1280 May 30 23:50 ..
+drwxrwxrwx     0     0       1280 May 30 23:50 .
+drwxrwxrwx     0     0        512 May 30 23:49 home
+-rwxr-xr-x     0     0          0 May 30 23:49 passwd
+drwxr-xr-x     0     0        768 May 30 23:50 layer1
 
 > cd /layer1/layer2
 
 > ls
-drwxr-xr-x     0     1        768 May 30 17:05 ..
-drwxr-xr-x     0     1        768 May 30 17:03 .
-drwxr-xr-x     0     1        512 May 30 17:03 layer3
+drwxr-xr-x     0     0        768 May 30 23:50 ..
+drwxr-xr-x     0     0        768 May 30 23:50 .
+drwxr-xr-x     0     0        512 May 30 23:50 layer3
 
-> cd / 
+> cd /
 
-> ls  
-drwxrwxrwx     0     0       1280 May 30 17:05 ..
-drwxrwxrwx     0     0       1280 May 30 17:05 .
-drwxrwxrwx     0     0       1024 May 30 16:40 home
--rwxr-xr-x     0     0          4 May 30 16:34 passwd
-drwxr-xr-x     0     1        768 May 30 17:05 layer1
+> ls
+drwxrwxrwx     0     0       1280 May 30 23:50 ..
+drwxrwxrwx     0     0       1280 May 30 23:50 .
+drwxrwxrwx     0     0        512 May 30 23:49 home
+-rwxr-xr-x     0     0          0 May 30 23:49 passwd
+drwxr-xr-x     0     0        768 May 30 23:50 layer1
 
 > cd layer1/layer2
 
 > ls
-drwxr-xr-x     0     1        768 May 30 17:05 ..
-drwxr-xr-x     0     1        768 May 30 17:05 .
-drwxr-xr-x     0     1        512 May 30 17:03 layer3
-
-> 
+drwxr-xr-x     0     0        768 May 30 23:51 ..
+drwxr-xr-x     0     0        768 May 30 23:50 .
+drwxr-xr-x     0     0        512 May 30 23:50 layer3
 ```
 
 ### 3.2 Support for multi-users
 
-First, we create an account with uid=1. Then, we switch to the account with uid=1 (using the "cacc" command, which creates the account if it doesn't exist and switches to the corresponding account if it does). During the creation process, a folder called "/home/home-1" is created in the home directory. We create a file called "file-uid-1" under account 1. Then, we switch to account 0. We find that account 0 cannot write to "file-uid-1" or modify "/home/home-1".
+First, we Creates a new account with the username "samuel" and the password "samuelpassword". Then, we switch to the account "samuel" (using the "cacc" command too, which creates the account if it doesn't exist and switches to the corresponding account if it does). We create a file called "samuel-file" under account "samuel". Then, we switch to account "bob". We can find that account "bob" cannot write to "file-uid-1", because he hasn't write permission for "samuel-file".
 
 ```
-> cacc 1
-Created new account.
-> cacc 1
-Changed to existed account.
-> mk file-uid-1
+> f
 
 > ls
-drwxrwxrwx     0     0       1280 May 30 16:35 ..
-drwxrwxrwx     0     0       1280 May 30 16:35 .
-drwxrwxrwx     0     0       1024 May 30 16:35 home
--rwxr-xr-x     0     0          4 May 30 16:34 passwd
--rwxr-xr-x     0     1          0 May 30 16:35 file-uid-1
+drwxrwxrwx     0     0       1024 May 30 23:51 ..
+drwxrwxrwx     0     0       1024 May 30 23:51 .
+drwxrwxrwx     0     0        512 May 30 23:51 home
+-rwxr-xr-x     0     0          0 May 30 23:51 passwd
 
-> cacc 0
-Changed to existed account.
-> w file-uid-1 5 abcde
+> cacc root rootpassword
+New account created.
+> cacc root rootpassword
+Change to existed account.
+> cacc samuel samuelpassword
+New account created.
+> cacc samuel samuelpassword
+Change to existed account.
+> mk samuel-file         
+Success.
+> ls
+drwxrwxrwx     0     0       1280 May 30 23:52 ..
+drwxrwxrwx     0     0       1280 May 30 23:52 .
+drwxrwxrwx     0     0        512 May 30 23:51 home
+-rwxr-xr-x     0     0       1016 May 30 23:51 passwd
+-rwxr-xr-x     0     1          0 May 30 23:52 samuel-file
+
+> cacc bob bobpassword
+New account created.
+> cacc bob bobpassword
+Change to existed account.
+> w samuel-file 5 abcde
 Error: Permission denied.
+> cacc samuel wrongpassword
+Error: Permission denied.
+> cacc samuel samuelpassword
+Change to existed account.
+> w samuel-file 5 abcde
+Success.
+> cat samuel-file
+abcde
+```
+
+Here, we create a temporary account "temp-acc", make a file and change its mode to "511" (i.e. "rwxrwxrwx"), and finally we remove the account "temp-acc". After deleting a user, the UID (user identifier) will not be reclaimed. In order to protect the data, the files and folders belonging to that user will not be deleted. The UID 0 (root user) has full permissions for these files and folders, so there is no need to worry that they will become inaccessible.
+
+```
+> cacc temp-acc temppassword
+New account created.
+> cacc temp-acc temppassword
+Change to existed account.
+> mk tempfile
+Success.
+> ls
+drwxrwxrwx     0     0       1536 May 31 00:01 ..
+drwxrwxrwx     0     0       1536 May 31 00:01 .
+drwxrwxrwx     0     0        512 May 30 23:51 home
+-rwxr-xr-x     0     0       2032 May 30 23:58 passwd
+-rwxr-xr-x     0     1          5 May 30 23:53 samuel-file
+-rwxr-xr-x     0     3          0 May 31 00:01 tempfile
+
+> chmod tempfile 511
+Success.
+> ls
+drwxrwxrwx     0     0       1536 May 31 00:01 ..
+drwxrwxrwx     0     0       1536 May 31 00:01 .
+drwxrwxrwx     0     0        512 May 30 23:51 home
+-rwxr-xr-x     0     0       2032 May 30 23:58 passwd
+-rwxr-xr-x     0     1          5 May 30 23:53 samuel-file
+-rwxrwxrwx     0     3          0 May 31 00:01 tempfile
+
+> rmacc temp-acc wrongpassword
+Error: Permission denied.
+> rmacc temp-acc temppassword
+Account removed.
+```
+
+Now, two clients are accessing the file system simultaneously. The following two sessions are synchronized to demonstrate that two users can perform file operations simultaneously. Here we can also see that Bob is unable to create files within the directory created by Samuel ("/home/samuel").
+
+```
+> cacc samuel samuelpassword
+Change to existed account.
+> ls
+drwxrwxrwx     0     0       1536 May 31 00:06 ..
+drwxrwxrwx     0     0       1536 May 31 00:06 .
+drwxrwxrwx     0     0        512 May 30 23:51 home
+-rwxr-xr-x     0     0       2032 May 31 00:01 passwd
+-rwxr-xr-x     0     1          5 May 30 23:53 samuel-file
+-rwxrwxrwx     0     3          0 May 31 00:01 tempfile
+
 > cd home
 
+> mkdir samuel
+Success.
+> cd /home/samuel
+
+> mk samuelfile        
+Success.
 > ls
-drwxrwxrwx     0     0       1280 May 30 16:35 ..
-drwxrwxrwx     0     0       1024 May 30 16:35 .
-drwxr-xr-x     0     0        512 May 30 16:34 home-0
-drwxr-xr-x     0     1        512 May 30 16:34 home-1
+drwxrwxrwx     0     0        768 May 31 00:06 ..
+drwxr-xr-x     0     1        768 May 31 00:07 .
+-rwxr-xr-x     0     1          0 May 31 00:07 samuelfile
 
-> cd home-1
+```
 
-> mkdir dir
+```
+> cacc bob bobpassword
+Change to existed account.
+> ls
+drwxrwxrwx     0     0       1536 May 31 00:07 ..
+drwxrwxrwx     0     0       1536 May 31 00:07 .
+drwxrwxrwx     0     0        768 May 31 00:06 home
+-rwxr-xr-x     0     0       2032 May 31 00:01 passwd
+-rwxr-xr-x     0     1          5 May 30 23:53 samuel-file
+-rwxrwxrwx     0     3          0 May 31 00:01 tempfile
+
+> cd home
+
+> mkdir bob 
+Success.
+> cd /home/bob
+
+> mk bobfile
+Success.
+> ls
+drwxrwxrwx     0     0       1024 May 31 00:07 ..
+drwxr-xr-x     0     2        768 May 31 00:08 .
+-rwxr-xr-x     0     2          0 May 31 00:08 bobfile
+
+> cd /home/samuel
+
+> mk bobfile
 Error: Permission denied.
-```
-
-Now, two clients are accessing the file system simultaneously. The following two sessions are synchronized to demonstrate that two users can perform file operations simultaneously.
-
-```
-> cacc 3
-Created new account.
-> cacc 3
-Changed to existed account.
-> cd /home/home-3
-
-> ls
-drwxrwxrwx     0     0       1536 May 30 17:10 ..
-drwxr-xr-x     0     3        512 May 30 17:08 .
-
-> mk file-3
-
-> ls
-drwxrwxrwx     0     0       1536 May 30 17:10 ..
-drwxr-xr-x     0     3        768 May 30 17:11 .
--rwxr-xr-x     0     3          0 May 30 17:11 file-3
-
-> 
-```
-
-```
-> cacc 2
-Created new account.
-> cacc 2
-Changed to existed account.
-> cd /home/home-2
-
-> ls
-drwxrwxrwx     0     0       1536 May 30 17:10 ..
-drwxr-xr-x     0     2        512 May 30 17:08 .
-
-> mk file-2
-
-> ls
-drwxrwxrwx     0     0       1536 May 30 17:10 ..
-drwxr-xr-x     0     2        768 May 30 17:10 .
--rwxr-xr-x     0     2          0 May 30 17:10 file-2
-
-> 
 ```
 
 ### 3.3 Error handling
@@ -257,7 +297,7 @@ Error: Already exists.
 Error.
 > w file here supposed to be a number                 
 Error.
-> cd /layer1/layer2/no-such-dir
+> cd /no-such-dir/
 Error: Not found.
 ```
 
