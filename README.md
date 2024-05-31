@@ -1,5 +1,7 @@
 # CS2303 File System
 
+This is a course assignment where we implement a toy version of an ext2-like network file system from scratch using the C language. For more details, please refer to the [report](doc/Report.md).
+
 ## 1 Compile
 
 ```
@@ -42,7 +44,7 @@ Run file system client:
 
 ### 3.1 Basic operations
 
-File reading and writing, file or directory reading and writing, file or directory deletion:
+Make file, make folder, remove file, remove folder, insert / delete characters in file:
 
 ```
 > f
@@ -86,7 +88,7 @@ drwxrwxrwx     0     0        512 May 30 23:49 home
 > e
 ```
 
-The meaning of each field in "ls" is similar to the meaning of fields in "ls -al" in a Linux system. The first field indicates whether the item is a directory and provides permission information. The second field indicates the group ID (gid) of the file. The third field indicates the user ID (uid) of the file. The fourth field indicates the file size. The fifth field indicates the last modification information of the file. The sixth field indicates the file name.
+The meaning of each field in result of "ls" is similar to the meaning of fields in that of "ls -al" in a Linux system. The first field indicates whether the item is a directory and provides permission information. The second field indicates the group ID (gid) of the file. The third field indicates the user ID (uid) of the file. The fourth field indicates the file size. The fifth field indicates the last modification information of the file. The sixth field indicates the file name.
 
 ```
 drwxrwxrwx     0     0       1536 May 30 17:15 ..
@@ -147,7 +149,7 @@ drwxr-xr-x     0     0        512 May 30 23:50 layer3
 
 ### 3.2 Support for multi-users
 
-First, we Creates a new account with the username "samuel" and the password "samuelpassword". Then, we switch to the account "samuel" (using the "cacc" command too, which creates the account if it doesn't exist and switches to the corresponding account if it does). We create a file called "samuel-file" under account "samuel". Then, we switch to account "bob". We can find that account "bob" cannot write to "file-uid-1", because he hasn't write permission for "samuel-file".
+First, we Creates a new account with the username "samuel" and the password "samuelpassword". Then, we switch to the account "samuel" (using the "cacc" command too, which creates the account if it doesn't exist and switches to the corresponding account if it does). We create a file called "samuel-file" under account "samuel". Then, we switch to account "bob". We will find that account "bob" cannot write to "file-uid-1", because he hasn't write permission for "samuel-file".
 
 ```
 > f
@@ -191,7 +193,7 @@ Success.
 abcde
 ```
 
-Here, we create a temporary account "temp-acc", make a file and change its mode to "511" (i.e. "rwxrwxrwx"), and finally we remove the account "temp-acc". After deleting a user, the UID (user identifier) will not be reclaimed. In order to protect the data, the files and folders belonging to that user will not be deleted. The UID 0 (root user) has full permissions for these files and folders, so there is no need to worry that they will become inaccessible.
+Here, we create a temporary account "temp-acc", make a file and change its mode to "511" (i.e. "rwxrwxrwx"), and finally we remove the account "temp-acc". After deleting a user, the UID (user identifier) will not be reclaimed. In order to protect the data, the files and folders belonging to that user will not be deleted. The UID 0 (root user) still has full permissions for these files and folders, so there is no need to worry that they will become inaccessible.
 
 ```
 > cacc temp-acc temppassword
@@ -302,5 +304,3 @@ Error: Not found.
 ```
 
 It is not possible to test errors that occur under extreme conditions, such as disk full, read/write errors, etc.
-
-For further information, please see the [report](doc/Report.md).

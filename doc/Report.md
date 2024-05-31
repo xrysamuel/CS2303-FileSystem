@@ -2,32 +2,35 @@
 
 ## 1 Overview
 
-This project implements a ext2-like file system consisting of three components. The first component is the Basic Disk Server (BDS), responsible for simulating a hard disk, and the Basic Disk Client (BDC) tests the functionality of BDS. The second component is the File Server (FS), responsible for managing the file system. The third component is the File Client (FC), which provides an interface for users to interact with the file system. These three components are loosely coupled and connected through sockets.
+This project implements a ext2-like network file system consisting of three components. The first is the Basic Disk Server (BDS), responsible for simulating a hard disk, accompanied by the Basic Disk Client (BDC), which performs behavioral tests for the BDS. The second component is the File Server (FS), which manages the file system. The third component is the File Client (FC), which provides an interface for users to interact with the file system. These three components are loosely coupled and communicate through sockets.
 
 Key features of this project include:
+
 - Unified error handling mechanism to enhance robustness.
-- A separate component for socket connenction (designed from scratch, without reference to the given template), allowing BDS, FS, and FC to abstract away the underlying communication details.
-- Minimizing disk I/O:
-    - Only necessary data are loaded to memory.
-    - Caching mechanism on the FS side to reduce disk access, utilizing the LRU approximation algorithm for cache replacement.
-    - Historical information recording of the bitmap to minimize disk access and expedite bitmap read/write.
-- Permission control for multi-users.
+- A socket connection library designed from scratch.
+- Reduced disk I/O:
+    - Only essential data are loaded to memory.
+    - Caching mechanism in FS to reduce disk access, with LRU approximation algorithm for cache replacement.
+    - Recording historical information of the bitmap minimizes disk access and speeds up bitmap read/write operations.
+- Permission controls.
 - Mutex locks to prevent data conflicts during read/write.
 
-## 2 TCP Socket
+This report will present the design details of the file system.
 
-In this project, BDC serves as the server for FS, while FS serves as the server for FC. We design a unified mechanism to manage TCP connections and communication effectively.
+## 2 Socket
 
-During TCP communication, packet fragmentation, known as the "sticky packet" issue, may occur due to the stream-oriented nature of TCP. For instance, if one side sends "123" followed by "4567," the receiving end may read "12345." To address this, we need to establish message boundaries. The first approach is terminating each message with a unique character. However, this method cannot be applied to our project as our protocol may use all ASCII characters in the message (for same reason, we cannot use C-style string in our project). Alternatively, the project adopts the second method which involves transmitting the message length followed by the message content to identify the message boundaries.
+In this project, BDC serves as the server for FS, while FS serves as the server for FC. We have designed a unified mechanism to effectively manage socket connections.
 
-Given that all three components in this project follow the Read-Evaluate-Print-Loop (REPL) pattern, where the server handles evaluation and the client manages reading and printing, we can design two independent components "simple_server" and "simple_client" to perform this loop jointly as well as handle the TCP communication between them. These two functions take the function pointer as parameters, so that the server can only focus on the evaluation logic and the client focus on the reading and printing aspects and simply pass the logic as callback function to the "simple_server" and "simple_client". This approach ensures code reusability and mitigates potential errors that may arise from dealing with communication intricacies.
+During TCP communication, there can be packet fragmentation, also known as the "sticky packet" issue, due to the streaming nature of TCP. For instance, if one side sends "123" followed by "4567," the receiving end may read "12345." To address this, it is necessary to establish message boundaries. One approach is to terminate each message with a unique character. However, in our project, this method cannot be applied as our protocol may use all ASCII characters in the message (for same reason, we cannot use C-style string in our project). As an alternative, our project transmits the message length followed by the message content to identify the message boundaries.
 
+Since all three components in this project follow the Read-Evaluate-Print-Loop (REPL) pattern, where the server handles evaluation and the client manages reading and printing, we can design two functions "simple_server" and "simple_client" to automate this loop and handle TCP communication between them. These functions take function pointers as parameters. By doing so, the server can focus solely on the evaluation logic, the client can focus on reading and printing, and then they can simply pass the logic as a callback function to the "simple_server" and "simple_client". This approach ensures code reusability and mitigates potential errors that may arise from dealing with communication intricacies.
 
 ## 3 Basic Disk Server
 
-The Basic Disk Server (BDS) emulates a physical disk. It treats a file as a disk and partitions it into multiple cylinders, which are further divided into sectors.
+The Basic Disk Server (BDS) emulates a physical disk. It treats a file as a disk and divides it into multiple cylinders, which are further divided into sectors.
 
 The BDS is capable of handling three types of requests:
+
 - `I`: Information request. The disk provides two integers representing the disk's geometry: the number of cylinders and the number of sectors per cylinder.
 - `R <#cylinder> <#sector>`: Read request for a specific sector. The disk responds with "Yes" followed by a whitespace and the 256-byte information if the block exists, or "No" if the block does not exist or error occurs.
 - `W <#cylinder> <#sector> <#len> <data>`: Write request for a sector. The disk responds with "Yes" and writes the data to the specified sector if it is a valid write request, or "No" otherwise.
@@ -40,18 +43,19 @@ It is important to note that the "data" field may contain ASCII 0 characters whe
 
 ### 4.1 Configuration
 
-Our file system divides the hard disk into several spaces, including super block, block bitmap, inode bitmap, inode tables and data blocks. This division is consistent with the division of a block group in EXT2.
-- Superblock: The superblock provides essential information about the file system, such as the block sizes and overall file system statistics. In our configuration, it occupies one block, i.e. 256 bytes.
-- Block Bitmap: The block bitmap is responsible for tracking the allocation status of data blocks within the file system. It consists of a series of bits, with each bit representing the availability of a corresponding data block. In our configuration, the block bitmap spans 16384 blocks.
-- Inode Bitmap: Similar to the block bitmap, the inode bitmap tracks the allocation status of inodes within the file system. Inodes store metadata about files and directories, such as permissions, timestamps, and file sizes. The inode bitmap spans 16 blocks in this configuration.
+Our file system divides the hard disk into several spaces, including super block, block bitmap, inode bitmap, inode tables and data blocks. Our division is consistent with the that of a block group in ext2 file system.
+
+- Superblock: The superblock records essential information about the file system, such as the block sizes and overall file system statistics. In our configuration, it occupies one block, i.e. 256 bytes.
+- Block Bitmap: The block bitmap tracks the allocation status of data blocks within the file system. It consists of a series of bits, with each bit representing the availability of a corresponding data block. In our configuration, the block bitmap spans 16384 blocks.
+- Inode Bitmap: Similar to the block bitmap, the inode bitmap tracks the allocation status of inodes within the file system. The inode bitmap spans 16 blocks in this configuration.
 - Inode Table: The inode table contains the actual inode structures, each representing a file or directory. It stores the metadata associated with each file or directory, allowing for efficient access and management. In this configuration, each partition contains 32768 inodes at most.
 - Data Blocks: The data blocks hold the actual file data, including the contents of files and directories. The size of the data blocks determines the maximum disk size supported by the file system. In this configuration, the number of data blocks is limited to less than 33,554,432, i.e. 8GB.
 
+Our file system supports a disk space range of 20 MB to 8 GB. The values in the configuration can be adjusted by modifying the macro definitions in `fsconfig.h`, since the FS program is not dependent on specific values (including block size). For example, if we want to support more inodes, we can increase the space of the inode bitmap and inode table.
+
 ![](media/partition.drawio.svg)
 
-In a file system, the inode and superblock are crucial data structures for organizing and managing files and directories. Then, we will explore the format of these structures in our file system.
-
-Let's begin with the format of the inode. The inode (index node) contains metadata about a file or directory. Here is the format of the inode structure:
+The inode and superblock are crucial data structures for organizing and managing files and directories. Let's begin with the format of the inode. The inode (index node) contains metadata about a file or directory. Here is the format of the inode structure:
 
 ```c
 struct inode_t
@@ -74,9 +78,9 @@ struct inode_t
 
 The inode structure contains various fields such as mode (indicating the type and permissions of the file/directory), uid (owner's user ID), size (file size in bytes), atime (last access time), ctime (creation time), mtime (last modification time), dtime (deletion time), block_ptr (direct block pointers), sblock_ptr (singly indirect block pointer), dblock_ptr (doubly indirect block pointer), tblock_ptr (triply indirect block pointer), gid (owner's group ID), and reserved (unused space).
 
-The inode has 12 direct block pointers that directly point to data blocks. The file system assigns data blocks to these pointers to allocate space for the file. For file sizes exceeding the capacity of the direct blocks, the file system employs indirect blocks. The inode's indirect block pointers (singly, doubly, or triply) point to blocks that contain multiple pointers. Each pointer within these blocks points to another block that, in turn, contains additional pointers pointing to data blocks.
+The inode has 12 direct block pointers that directly point to data blocks. The file system assigns data blocks to these pointers to allocate space for the file. For file sizes exceeding the capacity of the direct blocks, the file system uses indirect blocks. The inode's indirect block pointers (singly, doubly, or triply) point to blocks that contain multiple pointers. Each pointer within these blocks points to another block which, in turn, contains additional pointers pointing to data blocks.
 
-The allocation process for these indirect blocks is similar across all levels. The file system checks the previous level's capacity and, if necessary, assigns a new block for the indirect block pointer. It then initializes the block pointers within the allocated block. The file system continues this allocation process by assigning new blocks for the pointers within the indirect blocks, ensuring data blocks are allocated until the required space is obtained.
+When allocating space, file system checks whether the capacity of indirect block is reached, if reached, the file system will assign a new block for the indirect block and initializes the block pointers within the allocated block. File system will continue this process until the required space is obtained. When deallocating space, the file system follows the reverse process. It releases the allocated blocks starting from the lowest level of indirection, freeing up the associated disk space.
 
 The max file size supported by this inode and data block structure is (12 + 64 + 64 * 64 + 64 * 64 * 64) * 256 Bytes = 65 MB .
 
@@ -101,27 +105,29 @@ The superblock structure contains fields such as block_size (indicating the fixe
 
 ### 4.2 Program structure
 
-File Server (FS) adopts a layered program structure consisting of four layers:
-- disk: This layer offers a fundamental abstraction layer for the read and write interfaces in the basic disk server, incorporating a caching mechanism.
-- blocks: This layer provides interfaces for block and inode allocation and deallocation, as well as read and write operations for blocks.
-- inodes: This layer offers manipulation interfaces for inode files.
-- fs: This layer provides manipulation interfaces for the file tree, encompassing operations such as writing to a file, reading from a file, creating files or directories, and removing files or directories.
+File Server (FS) employs a layered program structure comprising four layers:
+
+- Disk Layer: This layer serves as a fundamental abstraction for the read and write interfaces in the basic disk server. It incorporates a caching mechanism to optimize disk access.
+- Blocks Layer: This layer provides interfaces for block and inode allocation and deallocation, as well as read and write operations for blocks.
+- Inodes Layer: This layer offers manipulation interfaces for inode files.
+- FS Layer: This layer provides high-level manipulation interfaces for the file tree, encompassing operations such as writing to a file, reading from a file, creating files or directories, and removing files or directories.
 
 Refer to the figure below for a detailed illustration:
 
 ![](media/filesystem.drawio.svg)
 
-Each layer utilizes the interface of the layer below it, providing a progressively increasing level of abstraction.
+Each layer utilizes the interface of the layer below it, enabling a progressive increase in abstraction. This layered structure allows for modular development, enhancing the maintainability and extensibility of the FS.
 
 ### 4.3 Disk layer
 
-In the Disk layer, a caching mechanism is employed for disk_write and disk_read operations. Specifically, a cache of size CACHE_SIZE is maintained as a global variable in the disk layer. Each cache block stores a specific block from a disk, and an auxiliary array indicates which sector's block is stored in each cache block.
+In the disk layer, a caching mechanism is employed to optimize `disk_write` and `disk_read` operations. Specifically, a cache of size `CACHE_SIZE` is maintained as a global variable within the disk layer. Each cache block stores a specific block from the disk, and an auxiliary array indicates which sector's block is stored in each cache block.
 
-When a disk_write request is issued, the cache is first searched. If the block is found, the contents of the buffer are directly written into the corresponding cache block. If the block is not found, a victim cache block is selected from the entire cache. Its contents are written back to the hard disk, and then the block we want to write is read into that position in the cache block, followed by writing to that cache block.
+When a `disk_write` request is issued, the cache is first searched. If the block is found in the cache, the contents of the buffer are directly written into the corresponding cache block. If the block is not found, a victim cache block is selected from the entire cache. Its contents are written back to the disk, clearing space for the desired block to be read into that position in the cache block, followed by writing the updated contents to the cache block.
 
-The processing strategy for disk_read requests is similar.
+The caching strategy for `disk_read` requests follows a similar approach.
 
-The cache replacement strategy used is an approximate LRU algorithm called "second chance." Specifically, the cache is maintained as a circular linked list, and a victim pointer is used to implement the second chance cache replacement algorithm. The second chance cache replacement algorithm, also known as the clock algorithm, is a modified version of the least recently used (LRU) algorithm. It operates based on the concept of a circular linked list and a "reference" or "second chance" bit associated with each cache block. Here are the steps of the second chance cache replacement algorithm:
+The cache replacement strategy is an approximate LRU algorithm called "second chance" algorithm. This algorithm is implemented using a circular linked list structure and a victim pointer. It operates based on the concept of a circular linked list and a "reference" or "second chance" bit associated with each cache block. Here are the steps of the second chance cache replacement algorithm:
+
 1. Initialize a victim pointer to point to the first cache block in the circular linked list.
 2. When a cache block needs to be replaced, examine the reference bit of the current victim block:
     - If the reference bit is 0, it means the block has not been accessed recently and can be chosen as the victim block for replacement.
@@ -147,7 +153,7 @@ To execute these commands, a total of 95 read and write requests are sent from t
 r 0, r 16401, r 16401, r 49169, r 49170, r 49171, r 49172, r 49173, r 49177, w 16401, r 16401, r 16401, r 16402, r 16403, r 16404, r 16407, r 16401, w 16401, r 16401, w 49169, w 49170, w 49171, w 49172, w 49173, w 49177, w 16401, r 16401, r 16401, r 49169, r 49170, r 49171, r 49172, r 49173, r 49177, w 16401, r 16401, r 16401, r 16402, r 16403, r 16404, r 16407, r 16385, r 16385, w 16385, w 16408, r 16401, r 1, r 1, w 1, w 16401, r 16401, w 49169, w 49170, w 49171, w 49172, w 49173, w 49177, w 49190, w 16401, r 16401, r 16401, r 49169, r 49170, r 49171, r 49172, r 49173, r 49177, r 49190, w 16401, r 16401, r 16401, r 16402, r 16403, r 16404, r 16407, r 16408, r 16408, r 1, r 1, w 1, w 16408, r 16408, w 49192, w 16408, r 16401, w 16401, r 16401, w 49169, w 49170, w 49171, w 49172, w 49173, w 49177, w 49190, w 16401
 ```
 
-Thanks to the presence of the caching mechanism, the actual sequence of read and write requests sent from the disk to the BDS (Block Device Service) is:
+Thanks to caching mechanism, the actual sequence of read and write requests sent from the disk to the BDS (Block Device Service) is:
 
 ```
 r 0, r 16401, r 49170, r 49171, r 49172, r 49173, r 49177, r 49177, r 16402, r 16403, r 16404, r 16407, r 16385, r 16408, r 1, r 49192, w 16401, r 49169, w 49170, w 49171, w 49172, w 49173, w 49177, w 16402, w 16403, w 16404, w 16407, w 16385, w 16408, w 1, w 49190, w 49192
@@ -179,7 +185,8 @@ The FS layer is the topmost layer of the File Server, responsible for translatin
 
 At this layer, file locks for read and write operations are implemented. Multiple users cannot simultaneously perform read and write operations on the same file. Additionally, permission management is enforced, as different commands require different read and write permissions. For example, when a user issues a write (`w`) command, the associated context is checked to determine if the user is the owner of the file or belongs to the same group as the file. Based on the file's mode, it is determined whether the user has the authority to write to the file. Similarly, when a user issues a `cd` command, it is verified if the user has access rights to the target directory. Furthermore, when a user issues an `mk` command, it is checked if the user has access rights to the working directory. By default, the created file is readable and writable by the owner, and readable by other users.
 
-The FS layer can perform the following file operations:
+The FS layer can perform the following requests:
+
 - `f`: Format. This command formats the file system on the disk by initializing the superblock and bitmap that the file system relies on. In addition, the system will create a root directory (inode_id = 0), as well as a \home directory and a passwd file to manage user data.
 - `mk <filename>`: Create file. This command creates a file with the specified name in the file system.
 - `mkdir <dirname>`: Create directory. This command creates a subdirectory with the specified name in the current directory.
@@ -194,7 +201,7 @@ The FS layer can perform the following file operations:
 
 Since the data in the file is stored contiguously, the `i` command saves all the data after the specified insertion position, changes the file size, writes the data to be inserted after that position, and finally appends the saved data at the end. The `d` command works in a similar way by moving the subsequent data to the front and adjusting the file size accordingly.
 
-Furthermore, to achieve the function of file system, we have designed a directory tree structure. Specifically, a directory is a special inode file containing multiple entries that point to subdirectories and files within the directory. The structure of each entry is as follows:
+To handle the request `mk`, `mkdir`, `rm`, `cd`, `rmdir`, and `ls`, we have designed a directory tree structure. Specifically, a directory is a special inode file containing multiple entries that point to subdirectories and files within the directory. The structure of each entry is as follows:
 
 ```c
 struct dir_entry_t
@@ -208,19 +215,21 @@ Each entry stores the name and inode ID of a subdirectory or file. It is importa
 
 When implementing the `cd` command, we can leverage the tree-like nature of directories by using a recursive approach. For example, to access "path/to/target," we can first change to the "path" directory and then recursively call `cd`, this time targeting "to/target."
 
-Additionally, it should be noted that we treat ".." and "." as two actual directory entries, equivalent to having a pointer pointing to the parent node in a tree data structure. If we don't do this, accessing the parent directory would become exceptionally difficult since we would need to traverse from the root directory each time.
+It should be noted that we treat ".." and "." as two actual directory entries, equivalent to having a pointer pointing to the parent node in a tree data structure. If we don't do this, accessing the parent directory would become exceptionally difficult since we would need to traverse from the root directory each time.
 
 
 ### 4.7 Multi-users
 
 The permission management model in this project is fully consistent with Linux. Specifically, our permissions are represented by `rwxrwxrwx`, where each character has the following meanings:
+
 - The first three characters represent the owner's permissions: `r` for read, `w` for write, and `x` for execute.
 - The second three characters represent the group's permissions.
 - The third three characters represent permissions for other users.
 
 Each type of permission corresponds to a uint16 integer, which is stored in the mode field of the inode.
 
-To support multiple users, we provide following command:
+To support multiple users, we provide following commands:
+
 - `cacc <account> <password>`: Change account. If the user account does not exist, it will be created. If the account already exists, the current session will switch to the specified user.
 - `rmacc <account> <password>`: Remove account. This command deletes a user account.
 - `chmod <filename> <#mode>`: Change mode. This command changes the mode of the file with the specified name.
@@ -242,7 +251,7 @@ struct acc_entry_t
 Each user's UID should correspond to their position in the "passwd" file. When deleting a user, their entry in the file is not removed but their UID is set to a negative value. This is done to prevent the reuse of UIDs and potential privacy issues if a new user is assigned the same UID as a previously deleted user. Additionally, there is no need to worry about the files becoming inaccessible after deleting a user since the root user (UID = 0) always has the permissions to modify the mode of all files.
 
 
-## 5 Error Handling
+## 5 Error Handling and Robustness
 
 Previously mentioned, this project utilizes a unified error handling approach to reduce debugging complexity and enhance system robustness.
 
@@ -266,11 +275,12 @@ All functions in the project return an integer value representing an error code.
 ```
 
 When an error occurs within a function, if the function cannot handle the error, it must forward or re-interpret the error to the caller, propagating it downward. However, if the function can handle the error, it falls into several scenarios:
+
 - In the case of an unrecoverable error, but the current function is capable of performing global cleanup actions, releasing all global system resources, it terminates the entire process or thread. For example, `simple_client` encounters a connection interruption (`READ_ERROR` or `WRITE_ERROR`).
 - In the case of a recoverable error, the error is processed within the function, and it does not propagate further.
 - If the current function is responsible for generating feedback to the user, it can generate an appropriate error message based on the error semantics. For instance, functions in FS Layer encounters `PERMISSION_DENIED` error.
 
-Furthermore, the project employs several macros:
+Besides, the project employs several macros:
 
 ```c
 // Returns the specified return value if the given condition is true, performs necessary cleanup actions.
@@ -290,11 +300,13 @@ Error: Could not get response.
 utils/client.c(52): Broken pipe
 ```
 
+Another consideration for improving program robustness is the frequent occurrence of buffer overflow in C programming, which refers to accessing a buffer beyond its capacity limits. Therefore, when designing internal interfaces of the project, it is essential to pass both the buffer pointer and parameters indicating the buffer size and capacity. Furthermore, we always use the safer versions of C library functions, such as `strncmp`, `snprintf`, and others, whenever possible. In cases where a safe version is not available, we implement our own solutions, such as `sscanf`.
+
 ## Appendix
 
-### A.1 Interfaces
+### A.1 Internal Interfaces
 
-All interfaces concerning socket communication are listed as follow:
+Interfaces concerning socket communication are listed as follow:
 ```c
 // socket
 int create_socket();
@@ -318,7 +330,7 @@ void custom_client_init(const char *server_ip, int port, response_t *response);
 void custom_client_close();
 ```
 
-For all function or interface declarations of File Server (FS), refer to the following:
+For function or interface declarations of File Server (FS), refer to the following:
 ```c
 // disk
 // Initializes the disk server with the specified server IP and port.
