@@ -1,6 +1,6 @@
 # CS2303 File System
 
-This is a course assignment where we implement a toy version of an ext2-like network file system from scratch using the C language. For more details, please refer to the [report](doc/Report.md).
+This is a course assignment where we implement a toy version of an ext2-like network file system from scratch using the C language. For more details, please refer to [report](doc/Report.md).
 
 ## 1 Compile
 

@@ -528,7 +528,9 @@ int chmod_file(struct response_arg_t arg, int *p_n_entries, struct dir_entry_t *
         result = get_inode(inode_id, &inode);
         RET_ERR_IF(IS_ERROR(result), free(req_buffer), result);
 
-        if (MATCHES_QUERY((*p_entries)[i].name, req_buffer, req_size) && !IS_MODE(MODE_DIR, inode.mode))
+        if (MATCHES_QUERY((*p_entries)[i].name, req_buffer, req_size) 
+        && !MATCHES_QUERY(".", req_buffer, req_size) 
+        && !MATCHES_QUERY("..", req_buffer, req_size))
         {
             // authorize
             result = authorize(arg.p_context, &inode, WRITE_AUTH);

@@ -265,28 +265,28 @@ int inode_file_resize(int inode_id, int size)
     else if (cur_n_blocks > n_blocks)
     {
         struct visit_path_t cur_visit_path;
-        struct visit_path_t prev_visit_path;
+        struct visit_path_t next_visit_path;
         int discard_block_id;
-        nth_block_to_visit_path(cur_n_blocks, &prev_visit_path);
         for (int block = cur_n_blocks - 1; block >= n_blocks; block--)
         {
             nth_block_to_visit_path(block, &cur_visit_path);
-            if (cur_visit_path.entry_3 != prev_visit_path.entry_3)
+            nth_block_to_visit_path(block - 1, &next_visit_path);
+            if (cur_visit_path.entry_3 != next_visit_path.entry_3)
             {
                 result = manipulate_entry_3_block_id(&inode, &discard_block_id, cur_visit_path, DEALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
             }
-            if (cur_visit_path.entry_2 != prev_visit_path.entry_2)
+            if (cur_visit_path.entry_2 != next_visit_path.entry_2)
             {
                 result = manipulate_entry_2_block_id(&inode, &discard_block_id, cur_visit_path, DEALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
             }
-            if (cur_visit_path.entry_1 != prev_visit_path.entry_1)
+            if (cur_visit_path.entry_1 != next_visit_path.entry_1)
             {
                 result = manipulate_entry_1_block_id(&inode, &discard_block_id, cur_visit_path, DEALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
             }
-            if (cur_visit_path.visit_type != prev_visit_path.visit_type)
+            if (cur_visit_path.visit_type != next_visit_path.visit_type)
             {
                 switch (cur_visit_path.visit_type)
                 {
@@ -303,7 +303,6 @@ int inode_file_resize(int inode_id, int size)
                 }
                 RET_ERR_RESULT(result);
             }
-            prev_visit_path = cur_visit_path;
         }
     }
     // append
@@ -312,10 +311,9 @@ int inode_file_resize(int inode_id, int size)
         struct visit_path_t cur_visit_path;
         struct visit_path_t prev_visit_path;
         int new_block_id;
-        nth_block_to_visit_path(cur_n_blocks - 1, &prev_visit_path);
         for (int block = cur_n_blocks; block < n_blocks; block++)
         {
-
+            nth_block_to_visit_path(block - 1, &prev_visit_path);
             nth_block_to_visit_path(block, &cur_visit_path);
             if (cur_visit_path.visit_type != prev_visit_path.visit_type)
             {
@@ -346,10 +344,9 @@ int inode_file_resize(int inode_id, int size)
             }
             if (cur_visit_path.entry_3 != prev_visit_path.entry_3)
             {
-                result = manipulate_entry_3_block_id(&inode, &new_block_id, cur_visit_path, DEALLOCATE_BLOCK_ID);
+                result = manipulate_entry_3_block_id(&inode, &new_block_id, cur_visit_path, ALLOCATE_BLOCK_ID);
                 RET_ERR_RESULT(result);
             }
-            prev_visit_path = cur_visit_path;
         }
     }
 
@@ -423,6 +420,8 @@ int inode_file_write(int inode_id, const char *buffer, int start, int size)
     nth_block_to_visit_path(start / BLOCK_SIZE, &visit_path);
     result = visit_path_to_block_id(&inode, &block_buffer_id, visit_path);
     RET_ERR_RESULT(result);
+    result = read_block(block_buffer_id, block_buffer);
+    RET_ERR_RESULT(result);
 
     int block_id;
     for (int addr = start; addr < start + size; addr++)
@@ -440,6 +439,8 @@ int inode_file_write(int inode_id, const char *buffer, int start, int size)
             result = write_block(block_buffer_id, block_buffer);
             RET_ERR_RESULT(result);
             block_buffer_id = block_id;
+            result = read_block(block_buffer_id, block_buffer);
+            RET_ERR_RESULT(result);
         }
         block_buffer[addr % BLOCK_SIZE] = buffer[addr - start];
     }
