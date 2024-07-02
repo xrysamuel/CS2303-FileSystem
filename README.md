@@ -1,6 +1,6 @@
 # CS2303 File System
 
-This is a course assignment where we implement a toy version of an ext2-like network file system from scratch using the C language. For more details, please refer to [report](doc/Report.md).
+This is a course assignment where we develop a toy version of an ext2-like network file system from scratch using the C language. For more details, please refer to [report](doc/Report.md).
 
 ## 1 Compile
 
@@ -10,37 +10,37 @@ make
 
 ## 2 Run
 
-Run basic disk server:
+Run the basic disk server:
 
 ```
 ./build/BDS diskfile.bin 400 400 20 10000
 ```
 
-Run basic disk client, command line based:
+Run the command-line disk client:
 
 ```
 ./build/BDC_command 127.0.0.1 10000
 ```
 
-Run basic disk client, random data client:
+Run the disk client with randomly generated commands for testing:
 
 ```
 ./build/BDC_random 127.0.0.1 10000
 ```
 
-Run file system:
+Start the file system server:
 
 ```
 ./build/FS 127.0.0.1 10000 10001
 ```
 
-Run file system client:
+Run the file system client:
 
 ```
 ./build/FC 127.0.0.1 10001
 ```
 
-## 3 Test Run
+## 3 Usage
 
 ### 3.1 Basic operations
 
@@ -88,7 +88,7 @@ drwxrwxrwx     0     0        512 May 30 23:49 home
 > e
 ```
 
-The meaning of each field in result of "ls" is similar to the meaning of fields in that of "ls -al" in a Linux system. The first field indicates whether the item is a directory and provides permission information. The second field indicates the group ID (gid) of the file. The third field indicates the user ID (uid) of the file. The fourth field indicates the file size. The fifth field indicates the last modification information of the file. The sixth field indicates the file name.
+The meaning of each field in the "ls" command's output is similar to that of "ls -al" in a Linux system. The first field indicates whether the item is a directory and provides permission information. The second field represents the group ID (gid) of the file. The third field represents the user ID (uid) of the file. The fourth field indicates the file size. The fifth field indicates the last modification time of the file. The sixth field indicates the file name.
 
 ```
 drwxrwxrwx     0     0       1536 May 30 17:15 ..
@@ -149,7 +149,7 @@ drwxr-xr-x     0     0        512 May 30 23:50 layer3
 
 ### 3.2 Support for multi-users
 
-First, we Creates a new account with the username "samuel" and the password "samuelpassword". Then, we switch to the account "samuel" (using the "cacc" command too, which creates the account if it doesn't exist and switches to the corresponding account if it does). We create a file called "samuel-file" under account "samuel". Then, we switch to account "bob". We will find that account "bob" cannot write to "file-uid-1", because he hasn't write permission for "samuel-file".
+First, we create a new account with the username "samuel" and the password "samuelpassword. Then, we switch to the "samuel" account. These two operations can be done with "cacc" command, which creates the account if it doesn't exist and switches to the corresponding account if it does. After that, we create a file called "samuel-file" under the "samuel" account. Next, we switch to the "bob" account. The "bob" account doesn't have write permission for "samuel-file," so Bob cannot write to it.
 
 ```
 > f
@@ -286,7 +286,7 @@ Error: Permission denied.
 
 ### 3.3 Error handling
 
-The following demonstrates some of the supported error handling:
+The following examples demonstrates some of the detectable error:
 
 ```
 > no-such-command
@@ -302,5 +302,3 @@ Error.
 > cd /no-such-dir/
 Error: Not found.
 ```
-
-It is not possible to test errors that occur under extreme conditions, such as disk full, read/write errors, etc.
