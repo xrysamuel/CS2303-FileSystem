@@ -1,48 +1,50 @@
 # CS2303 File System
 
-This is a course assignment where we develop a toy version of an ext2-like network file system from scratch using the C language. For more details, please refer to [report](doc/Report.md).
+This project is a toy-version, from-scratch implementation of an **ext2-like network file system** developed in C. It was created as a course assignment and is ideal for educational purposes, helping students understand the internal workings of a file system. For an in-depth look at its design and features, please refer to the [full report](doc/Report.md).
 
-## 1 Compile
+## 1 Getting started
 
-```
+To get started with the file system, follow these steps:
+
+**Compile the project:**
+
+```bash
 make
 ```
 
-## 2 Run
+**Run the basic disk server:**
 
-Run the basic disk server:
-
-```
+```bash
 ./build/BDS diskfile.bin 400 400 20 10000
 ```
 
-Run the command-line disk client:
+**Run the command-line disk client:**
 
-```
+```bash
 ./build/BDC_command 127.0.0.1 10000
 ```
 
-Run the disk client with randomly generated commands for testing:
+**Run the disk client with randomly generated commands for testing:**
 
-```
+```bash
 ./build/BDC_random 127.0.0.1 10000
 ```
 
-Start the file system server:
+**Start the file system server:**
 
-```
+```bash
 ./build/FS 127.0.0.1 10000 10001
 ```
 
-Run the file system client:
+**Run the file system client:**
 
-```
+```bash
 ./build/FC 127.0.0.1 10001
 ```
 
-## 3 Usage
+## 2 Usage
 
-### 3.1 Basic operations
+### 2.1 Basic operations
 
 Make file, make folder, remove file, remove folder, insert / delete characters in file:
 
@@ -88,7 +90,7 @@ drwxrwxrwx     0     0        512 May 30 23:49 home
 > e
 ```
 
-The meaning of each field in the "ls" command's output is similar to that of "ls -al" in a Linux system. The first field indicates whether the item is a directory and provides permission information. The second field represents the group ID (gid) of the file. The third field represents the user ID (uid) of the file. The fourth field indicates the file size. The fifth field indicates the last modification time of the file. The sixth field indicates the file name.
+List:
 
 ```
 drwxrwxrwx     0     0       1536 May 30 17:15 ..
@@ -147,9 +149,11 @@ drwxr-xr-x     0     0        768 May 30 23:50 .
 drwxr-xr-x     0     0        512 May 30 23:50 layer3
 ```
 
-### 3.2 Support for multi-users
+### 2.2 Multi-users
 
-First, we create a new account with the username "samuel" and the password "samuelpassword. Then, we switch to the "samuel" account. These two operations can be done with "cacc" command, which creates the account if it doesn't exist and switches to the corresponding account if it does. After that, we create a file called "samuel-file" under the "samuel" account. Next, we switch to the "bob" account. The "bob" account doesn't have write permission for "samuel-file," so Bob cannot write to it.
+First, we create and switch to a new account named "samuel" with the password "samuelpassword" using the `cacc` command. This command is versatile: it creates the account if it doesn't exist or switches to it if it does. Once logged in as "samuel," we create a file called "samuel-file."
+
+Next, we switch to the "bob" account. Since "bob" lacks write permissions for "samuel-file," any attempt by Bob to write to it will fail.
 
 ```
 > f
@@ -193,7 +197,8 @@ Success.
 abcde
 ```
 
-Here, we create a temporary account "temp-acc", make a file and change its mode to "511" (i.e. "rwxrwxrwx"), and finally we remove the account "temp-acc". After deleting a user, the UID (user identifier) will not be reclaimed. In order to protect the data, the files and folders belonging to that user will not be deleted. The UID 0 (root user) still has full permissions for these files and folders, so there is no need to worry that they will become inaccessible.
+In another scenario, we create a temporary account, "temp-acc," make a file, and change its mode to "511". Finally, we remove "temp-acc." It's important to note that when a user is deleted, their UID (user identifier) is not reclaimed. To safeguard data, files and folders belonging to the deleted user are not automatically removed. The root user (UID 0) retains full permissions over these files, ensuring they remain accessible.
+
 
 ```
 > cacc temp-acc temppassword
@@ -218,7 +223,7 @@ drwxrwxrwx     0     0       1536 May 31 00:01 .
 drwxrwxrwx     0     0        512 May 30 23:51 home
 -rwxr-xr-x     0     0       2032 May 30 23:58 passwd
 -rwxr-xr-x     0     1          5 May 30 23:53 samuel-file
--rwxrwxrwx     0     3          0 May 31 00:01 tempfile
+-r-x--x--x     0     3          0 May 31 00:01 tempfile
 
 > rmacc temp-acc wrongpassword
 Error: Permission denied.
@@ -226,7 +231,7 @@ Error: Permission denied.
 Account removed.
 ```
 
-Now, two clients are accessing the file system simultaneously. The following two sessions are synchronized to demonstrate that two users can perform file operations simultaneously. Here we can also see that Bob is unable to create files within the directory created by Samuel ("/home/samuel").
+Now, consider a scenario where two clients access the file system simultaneously. The following synchronized sessions demonstrate concurrent file operations. Here, it's also evident that Bob cannot create files within Samuel's directory (/home/samuel) due to permission restrictions.
 
 ```
 > cacc samuel samuelpassword
@@ -284,7 +289,7 @@ drwxr-xr-x     0     2        768 May 31 00:08 .
 Error: Permission denied.
 ```
 
-### 3.3 Error handling
+### 2.3 Error handling
 
 The following examples demonstrates some of the detectable error:
 
@@ -302,3 +307,7 @@ Error.
 > cd /no-such-dir/
 Error: Not found.
 ```
+
+## 3 Feedback
+
+If you find any bugs or have suggestions for improvements, feel free to open an issue. Your feedback is always welcome!
